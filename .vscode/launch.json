@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run main (myciel3)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\build\\Debug\\main.exe",
+      "args": ["${workspaceFolder}\\tests\\myciel3.col"],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "preLaunchTask": "CMake Build"
+    }
+  ]
+}
