@@ -249,15 +249,15 @@ Example:
  |V|      : 23
  |E|      : 71
  Trials   : 30
- Init cols: 87
+ Init cols: 49
 ============================================
-[iter    0] obj = 3.000000 | reduced_cost = -0.333333 | cols = 88
-[iter    1] obj = 3.142857 | reduced_cost = -0.142857 | cols = 89
+[iter    0] obj = 3.263636 | reduced_cost = -0.181818 | cols = 50
+[iter    1] obj = 3.248571 | reduced_cost = -0.054286 | cols = 51
 ...
 ============================================
 Converged after N iterations
 RMP status: OPTIMAL
-LP objective : 4.000000
+LP objective : 3.244828
 Lower bound  : 4
 Active lambdas: K / M
 ```
@@ -289,14 +289,16 @@ e 1 4
 
 Sample instances in `tests/`:
 
-| File            | $   | V    | $   | $   | E   | $   | Known $\chi$ |
-| --------------- | --- | ---- | --- | --- | --- | --- | ------------ |
-| `myciel3.col`   | 11  | 20   | 4   |
-| `myciel4.col`   | 23  | 71   | 5   |
-| `myciel6.col`   | 95  | 755  | 7   |
-| `queen5_5.col`  | 25  | 160  | 5   |
-| `queen8_8.col`  | 64  | 1456 | 9   |
-| `DSJC125.9.col` | 125 | 6961 | ≥44 |
+| File            | \|V\| | \|E\| | Known χ |
+| --------------- | ----- | ----- | ------- |
+| `myciel3.col`   | 11    | 20    | 4       |
+| `myciel4.col`   | 23    | 71    | 5       |
+| `myciel6.col`   | 95    | 755   | 7       |
+| `queen5_5.col`  | 25    | 320   | 5       |
+| `queen8_8.col`  | 64    | 1456  | 9       |
+| `DSJC125.9.col` | 125   | 6961  | ≥44     |
+
+...
 
 ---
 
@@ -341,14 +343,6 @@ At convergence, `ceil(LP objective)` is printed as the LP lower bound.
 **RMP column addition**: Gurobi columns are added incrementally via `GRBColumn::addTerm`, linking each column variable to the relevant vertex coverage constraints. No model rebuild needed — `model.update()` is called implicitly by the next `optimize()`.
 
 **Time budget in CP**: `cp_upper_bound` splits the global time limit adaptively. Each sub-call receives `min(remaining, max(5s, remaining/3))`, preventing any single k-value attempt from consuming the full budget while still giving sufficient time to the first few attempts.
-
-**Known limitations**:
-
-- MWSS pricing solves an NP-hard problem exactly via Gurobi MILP, which is the computational bottleneck. For large graphs, heuristic pricing (e.g., greedy or tabu search on the complement) would be faster but may miss improving columns.
-- The column generation currently solves only the LP relaxation. Obtaining an integer solution requires branching (branch-and-price), which is not yet implemented.
-- CP search is depth-first with no restarts; adding LNS or restart strategies may improve performance on hard instances.
-
----
 
 ## 10. References
 
