@@ -145,7 +145,7 @@ $$y_v \in \{0,1\} \quad \forall v \in V$$
 | Windows                           | —                | Platform                      |
 | CMake                             | ≥ 3.16           | Build system                  |
 | Visual Studio (MSVC)              | 2019 / 2022, x64 | C++17 compiler                |
-| [Gecode](https://www.gecode.org/) | 6.2.0            | CP solver (`main`)            |
+| [Gecode](https://www.gecode.dev/) | 6.2.0            | CP solver (`main`)            |
 | [Gurobi](https://www.gurobi.com/) | 13.0.2           | LP/MIP solver (`main_master`) |
 
 **Default install paths** (edit `CMakeLists.txt` to override):
