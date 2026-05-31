@@ -9,13 +9,6 @@
 
 #include "../graph/graph.h"
 
-struct CPSolveResult {
-    bool feasible = false;
-    bool stopped = false;
-    int num_colors = -1;
-    std::vector<int> color;
-};
-
 class ColoringCP : public Gecode::Space {
 public:
     const Graph& G;
@@ -43,6 +36,13 @@ private:
     //add edge constraints
     void add_edge_constraints();
     void add_all_different(const std::vector<std::vector<int>>& clique_info);
+};
+
+struct CPSolveResult {
+    bool feasible = false;
+    bool stopped = false;
+    int num_colors = -1;
+    std::vector<int> color;
 };
 
 CPSolveResult solve_coloring_cp(

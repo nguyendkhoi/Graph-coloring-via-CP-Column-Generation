@@ -6,29 +6,60 @@
       "type": "shell",
       "command": "cmake",
       "args": [
-        "-S", "${workspaceFolder}",
-        "-B", "${workspaceFolder}\\build",
-        "-G", "Visual Studio 18 2026",
-        "-A", "x64"
+        "-S",
+        "${workspaceFolder}",
+        "-B",
+        "${workspaceFolder}\\build",
+        "-G",
+        "Visual Studio 18 2026",
+        "-A",
+        "x64"
       ],
-      "options": { "cwd": "${workspaceFolder}" },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "problemMatcher": []
     },
     {
-      "label": "CMake Build",
+      "label": "CMake Build Debug",
       "type": "shell",
       "command": "cmake",
       "args": [
-        "--build", "${workspaceFolder}\\build",
-        "--config", "Debug"
+        "--build",
+        "${workspaceFolder}\\build",
+        "--config",
+        "Debug"
       ],
-      "options": { "cwd": "${workspaceFolder}" },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "dependsOn": "CMake Configure",
-      "problemMatcher": ["$msCompile"],
+      "problemMatcher": [
+        "$msCompile"
+      ],
       "group": {
         "kind": "build",
         "isDefault": true
       }
     },
+    {
+      "label": "CMake Build Release",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "${workspaceFolder}\\build",
+        "--config",
+        "Release"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "CMake Configure",
+      "problemMatcher": [
+        "$msCompile"
+      ],
+      "group": "build"
+    }
   ]
 }
