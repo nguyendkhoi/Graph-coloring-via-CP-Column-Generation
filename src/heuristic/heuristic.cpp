@@ -89,7 +89,6 @@ vector<int> random_sequential_greedy(const Graph& G, const vector<int>& V) {
     unordered_map<int, unordered_map<int, int>> neighbor_color;
     
     for (int v : V) {
-
         int color = 0;
         auto& v_neighbors_colors = neighbor_color[v];
         while (v_neighbors_colors.count(color)) {

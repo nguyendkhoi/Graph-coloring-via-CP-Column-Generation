@@ -2,7 +2,17 @@
 
 #include <vector>
 #include "../graph/graph.h"
-#include "../cp_coloring/cp.h"
+
+struct GraphReduction {
+    Graph reduced;
+    std::vector<int> removed_vertices;
+    std::vector<int> to_origin;
+    std::vector<int> to_reduced;
+};
+
+// Iteratively remove vertices with active-degree < clique_size - 1.
+// Removed vertices can always be colored greedily after solving the reduced graph.
+GraphReduction reduce_by_degree(const Graph& G, int clique_size);
 
 /**
  * @brief Finds the largest stable set from a coloring.
