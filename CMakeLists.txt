@@ -14,18 +14,21 @@ set(GUROBI_DIR "C:/gurobi1302/win64")
 # Sources
 set(COMMON_SOURCES
     src/graph/graph.cpp
-    src/heuristic/heuristic.cpp
+    src/coloring/heuristic.cpp
 )
 
 set(MAIN_SOURCES
     ${COMMON_SOURCES}
     src/preprocessing/clique_processing.cpp
-    src/cp_coloring/cp.cpp
+    src/coloring/cp.cpp
 )
 
 set(MASTER_SOURCES
     ${COMMON_SOURCES}
-    src/master/master.cpp
+    src/column_generation/stable_set.cpp
+    src/column_generation/rmp.cpp
+    src/column_generation/pricing.cpp
+    src/augmented_pricing/augmented_pricing.cpp
 )
 
 # Executables
@@ -48,6 +51,7 @@ target_include_directories(main PRIVATE
 target_include_directories(main_master PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     "${GUROBI_DIR}/include"
+    ${GECODE_INCLUDE}
 )
 
 # Link libraries
@@ -69,9 +73,10 @@ target_link_libraries(main PRIVATE
 
 target_link_libraries(main_master PRIVATE
     ${GUROBI_LIBS}
+    ${GECODE_LIBS}
 )
 
-# Copy Gecode DLLs for main only
+# Copy Gecode DLLs for main and main_master
 set(GECODE_DLLS
     "${GECODE_BIN_DIR}/GecodeSupport-6-2-0-r-x64.dll"
     "${GECODE_BIN_DIR}/GecodeSupport-6-2-0-d-x64.dll"
@@ -86,5 +91,8 @@ set(GECODE_DLLS
 foreach(DLL IN LISTS GECODE_DLLS)
     add_custom_command(TARGET main POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" $<TARGET_FILE_DIR:main>
+    )
+    add_custom_command(TARGET main_master POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" $<TARGET_FILE_DIR:main_master>
     )
 endforeach()

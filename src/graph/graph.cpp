@@ -50,7 +50,7 @@ int Graph::degree(int v) const {
     return adj[v].size();
 }
 
-std::vector<int> Graph::nodes() const {
+vector<int> Graph::nodes() const {
     vector<int> a(this->V);
     iota(a.begin(), a.end(), 0);
     return a;
@@ -138,3 +138,15 @@ Graph parser_dimacs_col(const string& file_path, bool zero_based) {
     return graph;
 }
 
+vector<pair<int, int>>  Graph::edges() const {
+    vector<pair<int, int>> edge_list;
+    
+    for (int u = 0; u < adj.size(); ++u) {
+        for (int v : adj[u]) {
+            if (u < v) { 
+                edge_list.push_back({u, v});
+            }
+        }
+    }
+    return edge_list;
+};

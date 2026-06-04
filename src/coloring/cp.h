@@ -7,33 +7,27 @@
 #include <gecode/int.hh>
 #include <gecode/search.hh>
 
-#include "../graph/graph.h"
+#include <graph/graph.h>
 
 class ColoringCP : public Gecode::Space {
 public:
     const Graph& G;
-    int k; //K colors
-    Gecode::IntVarArray x; //Decision variable
+    int k;
+    Gecode::IntVarArray x;
 
-    // Constructor
     ColoringCP(
         const Graph& graph,
         int num_colors,
         const std::vector<std::vector<int>>& clique_info = {}
     );
 
-    // Constructor Copy
-    ColoringCP(ColoringCP& other);
     Gecode::Space* copy() override;
 
-    //Symetrique Breaking
     void symetrique_breaking(std::vector<int> clique);
-
-    // Print color of solution
     void print_solution() const;
 
 private:
-    //add edge constraints
+    ColoringCP(ColoringCP& other);
     void add_edge_constraints();
     void add_all_different(const std::vector<std::vector<int>>& clique_info);
 };

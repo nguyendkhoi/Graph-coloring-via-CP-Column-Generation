@@ -5,7 +5,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <random>
-#include "../heuristic/heuristic.h"
+#include <coloring/heuristic.h>
 #include "../graph/graph.h"
 
 using namespace std;

@@ -1,6 +1,6 @@
 #include "cp.h"
-#include "../heuristic/heuristic.h"
-#include "../preprocessing/clique_processing.h"
+#include "heuristic.h"
+#include <preprocessing/clique_processing.h>
 
 #include <vector>
 #include <algorithm>
@@ -10,32 +10,22 @@
 using namespace std;
 using namespace Gecode;
 
-// --ColoringCP --
-
-// Constructor ColoringCP
 ColoringCP::ColoringCP(
     const Graph& graph,
     int num_colors,
     const vector<vector<int>>& clique_info
 ) : G(graph), k(num_colors), x(*this, graph.num_vertices(), 0, num_colors - 1) {
 
-    //Preprocessing symetry breaking
     int clique_size = 0;
     if (!clique_info.empty() && !clique_info[0].empty()) {
         vector<int> target_clique = clique_info[0];
         clique_size = static_cast<int>(target_clique.size());
-        
-        //Call symetrique breaking
         symetrique_breaking(target_clique);
     }
 
-    //Edge constraint
     add_edge_constraints();
-
-    // AllDifferent
     add_all_different(clique_info);
 
-    // constructor:
     if (num_colors > clique_size) {
         IntArgs remaining_colors(num_colors - clique_size);
         for (int i = clique_size; i < num_colors; ++i) {
@@ -49,7 +39,6 @@ ColoringCP::ColoringCP(
     }
 };
 
-// Constructor copy ColoringCP
 ColoringCP::ColoringCP(ColoringCP& other)
     : Space(other), G(other.G), k(other.k) {
     x.update(*this, other.x);
@@ -103,10 +92,9 @@ void ColoringCP::symetrique_breaking(vector<int> clique) {
     }
 }
 
-// --CPSolveResult --
 CPSolveResult solve_coloring_cp(
     const Graph& G,
-    int k, //Max colors
+    int k,
     const vector<vector<int>>& clique_info,
     double time_limit
 ) {
@@ -133,10 +121,10 @@ CPSolveResult solve_coloring_cp(
         delete sol;
         return {true, false, max_color + 1, colors};
     } else if (engine.stopped()) {
-            return {false, true, -1, {}};
-        } else {
-            return {false, false, -1, {}};
-        }
+        return {false, true, -1, {}};
+    } else {
+        return {false, false, -1, {}};
+    }
 }
 
 static vector<int> restore_coloring(
@@ -150,7 +138,6 @@ static vector<int> restore_coloring(
     for (int i = 0; i < (int)reduction.to_origin.size(); i++)
         full_colors[reduction.to_origin[i]] = reduced_colors[i];
 
-    // Coloring for each removed vertex
     for (int i = (int)reduction.removed_vertices.size() - 1; i >= 0; i--) {
         int v = reduction.removed_vertices[i];
         unordered_set<int> used;
@@ -175,7 +162,6 @@ CPSolveResult cp_upper_bound(
     GraphReduction reduction = reduce_by_degree(G, lb);
     bool is_reduced = !reduction.removed_vertices.empty();
 
-    // Remap clique_info vertices to reduced graph indices
     vector<vector<int>> reduced_clique_info;
     for (const auto& clique : clique_info) {
         vector<int> remapped;

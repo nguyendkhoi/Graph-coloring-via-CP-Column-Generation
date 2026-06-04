@@ -22,6 +22,7 @@ public:
     Graph complement() const;
     int degree(int v) const;
     std::vector<int> nodes() const;
+    std::vector<std::pair<int, int>> Graph::edges() const;
 
     // Return neighbors of vertex v
     const std::unordered_set<int>& neighbors(int v) const;

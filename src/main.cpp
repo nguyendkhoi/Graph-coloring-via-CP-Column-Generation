@@ -1,7 +1,7 @@
 #include "graph/graph.h"
 #include "preprocessing/clique_processing.h"
-#include "cp_coloring/cp.h"
-#include "heuristic/heuristic.h"
+#include "coloring/cp.h"
+#include "coloring/heuristic.h"
 
 #include <iostream>
 #include <iomanip>
@@ -147,7 +147,6 @@ static BenchRow run_one(const string& path, double time_limit) {
     return r;
 }    
 
-// ====== Auto-test toàn bộ thư mục ======
 int main(int argc, char** argv) {
     try {
         string tests_dir = "tests";
