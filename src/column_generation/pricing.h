@@ -12,6 +12,8 @@
 struct MWSSResult {
     StableColumn col;
     double reduced_cost = 0.0;
+    bool stopped = false;
+    int status = 0;
 };
 
 bool is_stable_set(const Graph& G, const std::vector<int>& vertices);
@@ -22,7 +24,8 @@ bool solve_mwss(
     GRBEnv& env,
     const Graph& G,
     const std::vector<double>& dual_value,
-    MWSSResult& res
+    MWSSResult& res,
+    double time_limit_seconds = 30.0
 );
 
 // 4 Constraint Programming-based Column Generation

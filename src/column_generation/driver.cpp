@@ -52,6 +52,8 @@ void print_run_header(
     cout << " |E|      : " << count_edges(G) << endl;
     cout << " Trials   : " << config.num_trials << endl;
     cout << " Seed     : " << config.seed << endl;
+    cout << " MWSS TL  : " << config.mwss_time_limit_seconds << " s" << endl;
+    cout << " AP TL    : " << config.augmented_time_limit_seconds << " s" << endl;
     cout << " Init cols: " << pool.size() << endl;
     cout << " Init UB  : " << incumbent_ub << endl;
     cout << "============================================" << endl;
@@ -204,6 +206,12 @@ MasterRunConfig parse_master_args(int argc, char** argv) {
     if (argc >= 4) {
         config.seed = static_cast<size_t>(stoull(argv[3]));
     }
+    if (argc >= 5) {
+        config.mwss_time_limit_seconds = stod(argv[4]);
+    }
+    if (argc >= 6) {
+        config.augmented_time_limit_seconds = stod(argv[5]);
+    }
 
     return config;
 }
@@ -333,10 +341,18 @@ int run_column_generation(const MasterRunConfig& config) {
     }
 
     while (!closed_gap && !reached_max_iter) {
-        bool found_mwss_column = solve_mwss(env, G, sol.dual_value, pricing);
+        bool found_mwss_column = solve_mwss(
+            env,
+            G,
+            sol.dual_value,
+            pricing,
+            config.mwss_time_limit_seconds
+        );
 
         if (!found_mwss_column) {
-            converged_by_pricing = true;
+            if (!pricing.stopped) {
+                converged_by_pricing = true;
+            }
             break;
         }
 
@@ -347,7 +363,12 @@ int run_column_generation(const MasterRunConfig& config) {
         if (augmented_pricing_enabled) {
             attempted_augmented = true;
             augmented_columns =
-                solveAugmentedPricing(pricing.col, incumbent_ub - 1, G);
+                solveAugmentedPricing(
+                    pricing.col,
+                    incumbent_ub - 1,
+                    G,
+                    config.augmented_time_limit_seconds
+                );
             augmented_success = !augmented_columns.empty();
 
             if (!augmented_success) {

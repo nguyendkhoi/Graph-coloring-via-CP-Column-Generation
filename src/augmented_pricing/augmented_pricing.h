@@ -26,5 +26,10 @@ private:
 };
 
 //Solver
-std::vector<StableColumn> solveAugmentedPricing(const StableColumn& ap, int k, const Graph& G);
+std::vector<StableColumn> solveAugmentedPricing(
+    const StableColumn& ap,
+    int k,
+    const Graph& G,
+    double time_limit_seconds = 5.0
+);
 

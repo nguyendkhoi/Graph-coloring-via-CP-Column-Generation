@@ -25,11 +25,21 @@ bool is_stable_set(const Graph& G, const vector<int>& vertices) {
 }
 
 // Optimalize pricing
-bool solve_mwss(GRBEnv& env, const Graph& G, const vector<double>& dual_value, MWSSResult& res) {
+bool solve_mwss(
+    GRBEnv& env,
+    const Graph& G,
+    const vector<double>& dual_value,
+    MWSSResult& res,
+    double time_limit_seconds
+) {
+    res = MWSSResult{};
+
     GRBModel model(env);
     double eps = 1e-6;
 
     model.set(GRB_IntAttr_ModelSense, GRB_MAXIMIZE);
+    model.set(GRB_DoubleParam_TimeLimit, time_limit_seconds);
+    model.set(GRB_DoubleParam_BestObjStop, 1.0 + eps);
 
     int n = G.num_vertices();
     if (static_cast<int>(dual_value.size()) != n) {
@@ -50,8 +60,11 @@ bool solve_mwss(GRBEnv& env, const Graph& G, const vector<double>& dual_value, M
 
     try {
         model.optimize();
+        res.status = model.get(GRB_IntAttr_Status);
+        res.stopped = (res.status == GRB_TIME_LIMIT);
 
-        if (model.get(GRB_IntAttr_Status) == GRB_OPTIMAL) {
+        int sol_count = model.get(GRB_IntAttr_SolCount);
+        if (sol_count > 0) {
             vector<int> input_vertices;
             double weight = 0.0;
             for (int v = 0; v < n; v++) {
@@ -64,6 +77,8 @@ bool solve_mwss(GRBEnv& env, const Graph& G, const vector<double>& dual_value, M
             res.reduced_cost = 1.0 - weight;
             return res.reduced_cost < -eps;
         }
+
+        return false;
     } catch (const GRBException& e) {
         cerr << "Gurobi Error " << e.getErrorCode()
              << ": " << e.getMessage() << endl;

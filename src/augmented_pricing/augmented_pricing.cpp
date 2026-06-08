@@ -68,14 +68,27 @@ vector<StableColumn> AP::extract_columns(int num_vertices) const {
     return cols;
 }
 
-vector<StableColumn> solveAugmentedPricing(const StableColumn& ap, int k, const Graph& G) {
+vector<StableColumn> solveAugmentedPricing(
+    const StableColumn& ap,
+    int k,
+    const Graph& G,
+    double time_limit_seconds
+) {
     AP* model = new AP(k, G.num_vertices(), ap, G);
-    DFS<AP> engine(model);
+    Search::Options opts;
+    Search::TimeStop stop(
+        static_cast<unsigned long long>(time_limit_seconds * 1000.0)
+    );
+    opts.stop = &stop;
+
+    DFS<AP> engine(model, opts);
     delete model;
+
     if (AP* sol = engine.next()) {
         auto cols = sol->extract_columns(G.num_vertices());
         delete sol;
         return cols;
     }
+
     return {};
 }
