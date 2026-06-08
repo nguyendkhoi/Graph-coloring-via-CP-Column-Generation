@@ -37,6 +37,7 @@ struct CPSolveResult {
     bool stopped = false;
     int num_colors = -1;
     std::vector<int> color;
+    std::vector<int> vertices;
 };
 
 CPSolveResult solve_coloring_cp(

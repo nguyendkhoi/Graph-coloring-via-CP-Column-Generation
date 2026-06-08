@@ -28,6 +28,7 @@ set(MASTER_SOURCES
     src/column_generation/stable_set.cpp
     src/column_generation/rmp.cpp
     src/column_generation/pricing.cpp
+    src/column_generation/driver.cpp
     src/augmented_pricing/augmented_pricing.cpp
 )
 
@@ -64,6 +65,9 @@ set(GECODE_LIBS
     "${GECODE_LIB_DIR}/$<IF:$<CONFIG:Debug>,GecodeSupport-6-2-0-d-x64.lib,GecodeSupport-6-2-0-r-x64.lib>"
     "${GECODE_LIB_DIR}/$<IF:$<CONFIG:Debug>,GecodeKernel-6-2-0-d-x64.lib,GecodeKernel-6-2-0-r-x64.lib>"
     "${GECODE_LIB_DIR}/$<IF:$<CONFIG:Debug>,GecodeInt-6-2-0-d-x64.lib,GecodeInt-6-2-0-r-x64.lib>"
+    "${GECODE_LIB_DIR}/$<IF:$<CONFIG:Debug>,GecodeSet-6-2-0-d-x64.lib,GecodeSet-6-2-0-r-x64.lib>"
+    "${GECODE_LIB_DIR}/$<IF:$<CONFIG:Debug>,GecodeFloat-6-2-0-d-x64.lib,GecodeFloat-6-2-0-r-x64.lib>"
+    "${GECODE_LIB_DIR}/$<IF:$<CONFIG:Debug>,GecodeMiniModel-6-2-0-d-x64.lib,GecodeMiniModel-6-2-0-r-x64.lib>"
     "${GECODE_LIB_DIR}/$<IF:$<CONFIG:Debug>,GecodeSearch-6-2-0-d-x64.lib,GecodeSearch-6-2-0-r-x64.lib>"
 )
 

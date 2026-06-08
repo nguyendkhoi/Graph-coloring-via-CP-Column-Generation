@@ -109,6 +109,8 @@ $$y_v \in \{0,1\} \quad \forall v \in V$$
 │   │   ├── heuristic.h
 │   │
 │   ├── column_generation/          # Restricted master problem and pricing
+│   │   ├── driver.h                # Column-generation run configuration
+│   │   ├── driver.cpp              # Main column-generation control flow and reports
 │   │   ├── pricing.h               # MWSS pricing problem
 │   │   ├── rmp.h                   # Restricted Master Problem
 │   │   ├── stable_set.h            # Stable-set column representation

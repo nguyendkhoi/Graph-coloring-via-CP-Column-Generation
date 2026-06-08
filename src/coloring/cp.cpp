@@ -98,8 +98,12 @@ CPSolveResult solve_coloring_cp(
     const vector<vector<int>>& clique_info,
     double time_limit
 ) {
+    // Tạo object với các giá trị mặc định từ struct 
+    // (feasible = false, stopped = false, num_colors = -1, các mảng rỗng)
+    CPSolveResult res; 
+
     if (!clique_info.empty() && static_cast<int>(clique_info[0].size()) > k) {
-        return {false, false, -1, {}};
+        return res; 
     }
 
     ColoringCP* problem = new ColoringCP(G, k, clique_info);
@@ -111,20 +115,22 @@ CPSolveResult solve_coloring_cp(
     DFS<ColoringCP> engine(problem, opts);
 
     if (ColoringCP* sol = engine.next()) {
-        vector<int> colors;
+        res.feasible = true;
         int max_color = -1;
+        
         for (int i = 0; i < sol->x.size(); i++) {
             int c = sol->x[i].val();
-            colors.push_back(c);
+            res.color.push_back(c);
             if (c > max_color) max_color = c;
         }
+        res.num_colors = max_color + 1;
         delete sol;
-        return {true, false, max_color + 1, colors};
     } else if (engine.stopped()) {
-        return {false, true, -1, {}};
-    } else {
-        return {false, false, -1, {}};
+        res.stopped = true;
     }
+
+    delete problem; 
+    return res;
 }
 
 static vector<int> restore_coloring(

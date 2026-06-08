@@ -56,9 +56,11 @@ StableColumn::StableColumn(const vector<int>& input_vertices, int num_vertices) 
 
 bool StableColumn::contains_vertex(int v) const {
     int word_index = v / 64;
-    int bit_index = v & 64;
+    int bit_index = v % 64;
 
-    if (word_index >= bitset.size()) return false;
+    if (word_index < 0 || word_index >= static_cast<int>(bitset.size())) {
+        return false;
+    }
 
     return (bitset[word_index] & (1ULL << bit_index)) != 0;
 }

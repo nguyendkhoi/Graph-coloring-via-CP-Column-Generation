@@ -7,7 +7,10 @@
 #include <string>
 #include <vector>
 
+#include <gecode/minimodel.hh>
+
 using namespace std;
+using namespace Gecode;
 
 bool is_stable_set(const Graph& G, const vector<int>& vertices) {
     for (int i = 0; i < (int)vertices.size(); i++) {
@@ -68,4 +71,78 @@ bool solve_mwss(GRBEnv& env, const Graph& G, const vector<double>& dual_value, M
 
 // Constraint Programming-based Column Generation
 // Decision pricing
-bool C
+// (14-15)
+CP_CG::CP_CG(const Graph& graph, std::vector<int> max_clique) : G(graph), x(*this, graph.num_vertices(), 0, 1) {
+    // (18)
+    for (auto& [u, v] : graph.edges()) {
+        if (u < v) {
+            rel(*this, x[u] + x[v] <= 1);
+        }
+    }
+
+    // 4.2.1 Shuffled Static Order
+    Gecode::Rnd r(25);
+    branch(*this, x, BOOL_VAR_RND(r), BOOL_VAL_MAX());
+
+    // 4.1 Weighted Maximum Clique Constraint
+    symetrique_breaking(max_clique);
+}
+
+CP_CG::CP_CG(CP_CG& other)
+    : Space(other), G(other.G) {
+    x.update(*this, other.x);
+}
+
+Space* CP_CG::copy() {
+    return new CP_CG(*this);
+}
+
+// (16-17-19)
+CPSolveResult solve_CP_CG(CP_CG& cp_cg, const vector<double>& dual_value, double threshhold) {
+    // 1. Tạo object lưu kết quả (mặc định feasible = false, stopped = false)
+    CPSolveResult res;
+
+    const double SCALE = 10000.0;
+    IntArgs c(dual_value.size());
+    for (size_t i = 0; i < dual_value.size(); ++i) {
+        c[i] = static_cast<int>(std::round(dual_value[i] * SCALE));
+    }
+
+    int int_threshold = static_cast<int>(std::round(threshhold * SCALE));
+    
+    linear(cp_cg, c, cp_cg.x, IRT_LE, int_threshold);
+
+    Search::Options opts;
+    DFS<CP_CG> engine(&cp_cg, opts);
+
+    if (CP_CG* sol = engine.next()) {
+        res.feasible = true;
+        
+        for (int i = 0; i < sol->x.size(); i++) {
+            if (sol->x[i].val() == 1) {
+                res.vertices.push_back(i);
+            }
+        }
+        
+        delete sol;
+        
+    } else if (engine.stopped()) {
+        res.stopped = true;
+    }
+
+    // Trả về object kết quả
+    return res;
+}
+
+void CP_CG::symetrique_breaking(vector<int> clique) {
+    sort(clique.begin(), clique.end(),
+        [this](int a, int b) {
+            return G.degree(a) > G.degree(b);
+        }
+    );
+
+    BoolVarArgs clique_vars;
+    for (int i = 0; i < static_cast<int>(clique.size()); i++) {
+        rel(*this, x[clique[i]], IRT_EQ, 1);
+    }
+}
