@@ -99,25 +99,28 @@ $$y_v \in \{0,1\} \quad \forall v \in V$$
 
 ```
 .
+.
 ├── src/
-│   ├── graph/                   # Graph representation and DIMACS parser
-│   │   ├── graph.h
-│   │   └── graph.cpp
-│   ├── heuristic/               # Greedy, DSATUR, random-sequential greedy
-│   │   ├── heuristic.h
-│   │   └── heuristic.cpp
-│   ├── preprocessing/           # Clique generation (complement-graph coloring)
-│   │   ├── clique_processing.h
-│   │   └── clique_processing.cpp
-│   ├── cp_coloring/             # Gecode CP model for coloring
+│   ├── augmented_pricing/          # Augmented pricing model and search
+│   │   ├── augmented_pricing.h
+│   │
+│   ├── coloring/                   # Graph-coloring heuristics and Gecode CP model
 │   │   ├── cp.h
-│   │   └── cp.cpp
-│   ├── master/                  # RMP, MWSS pricing, column pool
-│   │   ├── master.h
-│   │   └── master.cpp
-│   ├── main.cpp                 # Benchmark: DSATUR vs CP-UB (Gecode)
-│   └── main_master.cpp          # Column Generation loop (Gurobi)
-├── tests/                       # DIMACS .col benchmark instances
+│   │   ├── heuristic.h
+│   │
+│   ├── column_generation/          # Restricted master problem and pricing
+│   │   ├── pricing.h               # MWSS pricing problem
+│   │   ├── rmp.h                   # Restricted Master Problem
+│   │   ├── stable_set.h            # Stable-set column representation
+│   │
+│   ├── graph/                      # Graph representation and DIMACS parser
+│   │
+│   ├── preprocessing/              # Clique preprocessing and lower-bound generation
+│   │
+│   ├── main.cpp                    # Graph-coloring benchmark entry point
+│   └── main_master.cpp             # Column-generation entry point
+│
+├── tests/                          # DIMACS .col benchmark instances
 ├── CMakeLists.txt
 └── README.md
 ```
@@ -346,13 +349,9 @@ At convergence, `ceil(LP objective)` is printed as the LP lower bound.
 
 ## 10. References
 
-1. Brelaz, D. (1979). _New methods to color the vertices of a graph_. Communications of the ACM, 22(4), 251–256.
-2. Mehrotra, A., & Trick, M. A. (1996). _A column generation approach for graph coloring_. INFORMS Journal on Computing, 8(4), 344–354.
-3. Trick, M. A. (2003). _A dynamic programming approach for consistency and propagation for knapsack constraints_. Annals of Operations Research, 118(1), 73–84.
-4. Van Hoeve, W.-J. (2001). _The alldifferent constraint: A survey_. Sixth Annual Workshop of the ERCIM Working Group on Constraints.
-5. Schulte, C., Stuckey, P. J. (2008). _Efficient constraint propagation engines_. ACM TOPLAS, 31(1).
-6. Gecode Team. _Gecode: Generic Constraint Development Environment_. [https://www.gecode.org/](https://www.gecode.org/)
-7. Gurobi Optimization. _Gurobi Optimizer Reference Manual_. [https://www.gurobi.com/](https://www.gurobi.com/)
+1. Gualandi, S., & Malucelli, F. (2012). Exact solution of graph coloring problems via constraint programming and column generation. INFORMS Journal on Computing, 24(1), 81–100. [https://doi.org/10.1287/ijoc.1100.0436](https://doi.org/10.1287/ijoc.1100.0436)
+2. Gecode Team. _Gecode: Generic Constraint Development Environment_. [https://www.gecode.org/](https://www.gecode.org/)
+3. Gurobi Optimization. _Gurobi Optimizer Reference Manual_. [https://www.gurobi.com/](https://www.gurobi.com/)
 
 ---
 

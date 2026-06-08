@@ -99,7 +99,6 @@ static void write_csv(const string& path, const vector<BenchRow>& rows) {
     }
 }
 
-// ====== Chạy 1 instance ======
 static BenchRow run_one(const string& path, double time_limit) {
     BenchRow r;
     r.instance = fs::path(path).filename().string();
@@ -107,12 +106,10 @@ static BenchRow run_one(const string& path, double time_limit) {
     Graph G = parser_dimacs_col(path, true);
     r.n = G.num_vertices();
 
-    // đếm cạnh (mỗi cạnh xuất hiện 2 lần trong adj)
     long long deg_sum = 0;
     for (int v = 0; v < r.n; ++v) deg_sum += (long long)G.neighbors(v).size();
     r.m = static_cast<int>(deg_sum / 2);
 
-    // clique LB (dùng đúng API hiện có của bạn)
     vector<vector<int>> clique_info = generate_clique(G, 20);
     r.clique_lb = clique_info.empty() ? 0 : (int)clique_info[0].size();
 
@@ -162,7 +159,6 @@ int main(int argc, char** argv) {
             return 1;
         }
 
-        // Lấy danh sách *.col
         vector<string> files;
         for (auto& entry : fs::directory_iterator(tests_dir)) {
             if (entry.is_regular_file() && entry.path().extension() == ".col") {

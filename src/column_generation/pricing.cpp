@@ -18,6 +18,7 @@ bool is_stable_set(const Graph& G, const vector<int>& vertices) {
     return true;
 }
 
+// Optimalize pricing
 bool solve_mwss(GRBEnv& env, const Graph& G, const vector<double>& dual_value, MWSSResult& res) {
     GRBModel model(env);
     double eps = 1e-6;
@@ -64,3 +65,7 @@ bool solve_mwss(GRBEnv& env, const Graph& G, const vector<double>& dual_value, M
 
     return false;
 }
+
+// Constraint Programming-based Column Generation
+// Decision pricing
+bool C
