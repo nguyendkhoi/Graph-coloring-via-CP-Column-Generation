@@ -36,6 +36,7 @@ struct CPSolveResult {
     bool feasible = false;
     bool stopped = false;
     int num_colors = -1;
+    double val = 0.0;
     std::vector<int> color;
     std::vector<int> vertices;
 };

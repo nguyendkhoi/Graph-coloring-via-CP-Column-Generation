@@ -68,7 +68,7 @@ void print_iteration(
     double reduced_cost,
     long long lower_bound,
     int upper_bound,
-    const string& augmented_pricing_status,
+    const string& step,
     int column_count
 ) {
     cout << "[iter " << setw(4) << iter << "] "
@@ -76,7 +76,7 @@ void print_iteration(
          << " | rc = " << reduced_cost
          << " | LB = " << lower_bound
          << " | UB = " << upper_bound
-         << " | AP = " << augmented_pricing_status
+         << " | step = " << step
          << " | cols = " << column_count
          << endl;
 }
@@ -170,6 +170,26 @@ void print_final_report(
     cout << "Gap: [" << final_lb << ", " << incumbent_ub << "]" << endl;
 }
 
+bool solve_decision_pricing(
+    const Graph& G,
+    const vector<int>& max_clique,
+    const vector<double>& dual_value,
+    double threshold,
+    MWSSResult& pricing
+) {
+    CP_CG cp_cg(G, max_clique);
+    CPSolveResult res = solve_CP_CG(cp_cg, dual_value, threshold);
+
+    if (!res.feasible) {
+        return false;
+    }
+
+    pricing.col = StableColumn(res.vertices, G.num_vertices());
+    pricing.reduced_cost = 1.0 - res.val;
+
+    return pricing.reduced_cost < -1e-6;
+}
+
 } // namespace
 
 MasterRunConfig parse_master_args(int argc, char** argv) {
@@ -217,30 +237,36 @@ int run_column_generation(const MasterRunConfig& config) {
     rmp.add_column_pool(pool);
 
     int cg_iter = 0;
-    bool try_augmented_pricing = true;
+    bool augmented_pricing_enabled = true;
     bool converged_by_pricing = false;
     bool closed_gap = false;
+    bool reached_max_iter = false;
 
     RMPSolution sol;
     MWSSResult pricing;
 
-    while (true) {
+    auto solve_current_rmp = [&]() -> bool {
         sol = rmp.solve();
-
-        if (sol.status != GRB_OPTIMAL) {
-            cerr << "RMP not optimal at iter " << cg_iter
-                 << ": " << gurobi_status_name(sol.status) << endl;
-            return 2;
+        if (sol.status == GRB_OPTIMAL) {
+            return true;
         }
 
-        bool has_negative_reduced_cost_column =
-            solve_mwss(env, G, sol.dual_value, pricing);
+        cerr << "RMP not optimal at iter " << cg_iter
+             << ": " << gurobi_status_name(sol.status) << endl;
+        return false;
+    };
 
-        if (!has_negative_reduced_cost_column) {
-            converged_by_pricing = true;
-            break;
+    auto stop_if_iteration_limit_reached = [&]() -> bool {
+        if (cg_iter < config.max_iter) {
+            return false;
         }
 
+        cerr << "Reached max CG iterations." << endl;
+        reached_max_iter = true;
+        return true;
+    };
+
+    auto add_pricing_column = [&](const string& step) -> bool {
         long long lower_bound =
             lubbecke_desrosiers_bound(sol.objective, pricing.reduced_cost);
 
@@ -252,19 +278,87 @@ int run_column_generation(const MasterRunConfig& config) {
                 pricing.reduced_cost,
                 lower_bound,
                 incumbent_ub,
-                "skipped",
+                step + " skipped",
                 rmp.column_count()
             );
+            return false;
+        }
+
+        if (!pool.insert(pricing.col)) {
+            cout << "[iter " << cg_iter << "] duplicate " << step
+                 << " column -> stop" << endl;
+            return false;
+        }
+
+        rmp.add_column(pricing.col);
+        print_iteration(
+            cg_iter,
+            sol,
+            pricing.reduced_cost,
+            lower_bound,
+            incumbent_ub,
+            step,
+            rmp.column_count()
+        );
+
+        ++cg_iter;
+        return !stop_if_iteration_limit_reached();
+    };
+
+    if (!solve_current_rmp()) {
+        return 2;
+    }
+
+    while (!closed_gap && !reached_max_iter) {
+        bool found_decision_column =
+            solve_decision_pricing(
+                G,
+                pool.column(0).vertices,
+                sol.dual_value,
+                1.0,
+                pricing
+            );
+
+        if (!found_decision_column) {
+            break;
+        }
+
+        if (!add_pricing_column("decision")) {
+            break;
+        }
+
+        if (!solve_current_rmp()) {
+            return 2;
+        }
+    }
+
+    while (!closed_gap && !reached_max_iter) {
+        bool found_mwss_column = solve_mwss(env, G, sol.dual_value, pricing);
+
+        if (!found_mwss_column) {
+            converged_by_pricing = true;
             break;
         }
 
         vector<StableColumn> augmented_columns;
-        if (try_augmented_pricing) {
+        bool attempted_augmented = false;
+        bool augmented_success = false;
+
+        if (augmented_pricing_enabled) {
+            attempted_augmented = true;
             augmented_columns =
                 solveAugmentedPricing(pricing.col, incumbent_ub - 1, G);
+            augmented_success = !augmented_columns.empty();
+
+            if (!augmented_success) {
+                augmented_pricing_enabled = false;
+            }
         }
 
-        if (!augmented_columns.empty()) {
+        if (augmented_success) {
+            long long lower_bound =
+                lubbecke_desrosiers_bound(sol.objective, pricing.reduced_cost);
+
             incumbent = augmented_columns;
             incumbent_ub = static_cast<int>(augmented_columns.size());
 
@@ -280,35 +374,34 @@ int run_column_generation(const MasterRunConfig& config) {
                 pricing.reduced_cost,
                 lower_bound,
                 incumbent_ub,
-                "success",
+                "MWSS + augmented",
                 rmp.column_count()
             );
-        } else {
-            if (!pool.insert(pricing.col)) {
-                cout << "[iter " << cg_iter
-                     << "] duplicate regular pricing column -> stop" << endl;
+
+            if (lower_bound >= incumbent_ub) {
+                closed_gap = true;
                 break;
             }
 
-            rmp.add_column(pricing.col);
-            try_augmented_pricing = false;
+            ++cg_iter;
+            if (stop_if_iteration_limit_reached()) {
+                break;
+            }
+        } else {
+            string step = "MWSS";
+            if (attempted_augmented) {
+                step = "MWSS (AP failed)";
+            } else if (!augmented_pricing_enabled) {
+                step = "MWSS (AP disabled)";
+            }
 
-            print_iteration(
-                cg_iter,
-                sol,
-                pricing.reduced_cost,
-                lower_bound,
-                incumbent_ub,
-                "fail",
-                rmp.column_count()
-            );
+            if (!add_pricing_column(step)) {
+                break;
+            }
         }
 
-        ++cg_iter;
-
-        if (cg_iter >= config.max_iter) {
-            cerr << "Reached max CG iterations." << endl;
-            break;
+        if (!solve_current_rmp()) {
+            return 2;
         }
     }
 

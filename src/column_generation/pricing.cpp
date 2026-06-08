@@ -2,6 +2,7 @@
 #include "gurobi_c++.h"
 #include <graph/graph.h>
 
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -11,6 +12,8 @@
 
 using namespace std;
 using namespace Gecode;
+
+const double SCALE = 10000.0;
 
 bool is_stable_set(const Graph& G, const vector<int>& vertices) {
     for (int i = 0; i < (int)vertices.size(); i++) {
@@ -80,12 +83,9 @@ CP_CG::CP_CG(const Graph& graph, std::vector<int> max_clique) : G(graph), x(*thi
         }
     }
 
-    // 4.2.1 Shuffled Static Order
-    Gecode::Rnd r(25);
-    branch(*this, x, BOOL_VAR_RND(r), BOOL_VAL_MAX());
-
     // 4.1 Weighted Maximum Clique Constraint
     symetrique_breaking(max_clique);
+
 }
 
 CP_CG::CP_CG(CP_CG& other)
@@ -98,19 +98,21 @@ Space* CP_CG::copy() {
 }
 
 // (16-17-19)
-CPSolveResult solve_CP_CG(CP_CG& cp_cg, const vector<double>& dual_value, double threshhold) {
-    // 1. Tạo object lưu kết quả (mặc định feasible = false, stopped = false)
+CPSolveResult solve_CP_CG(CP_CG& cp_cg, const vector<double>& dual_value, double threshold) {
     CPSolveResult res;
 
-    const double SCALE = 10000.0;
     IntArgs c(dual_value.size());
     for (size_t i = 0; i < dual_value.size(); ++i) {
         c[i] = static_cast<int>(std::round(dual_value[i] * SCALE));
     }
 
-    int int_threshold = static_cast<int>(std::round(threshhold * SCALE));
+    int int_threshold = static_cast<int>(std::round(threshold * SCALE));
     
-    linear(cp_cg, c, cp_cg.x, IRT_LE, int_threshold);
+    linear(cp_cg, c, cp_cg.x, IRT_GR, int_threshold);
+
+    // 4.2.1 Shuffled Static Order
+    Gecode::Rnd r(25);
+    branch(cp_cg, cp_cg.x, BOOL_VAR_RND(r), BOOL_VAL_MAX());
 
     Search::Options opts;
     DFS<CP_CG> engine(&cp_cg, opts);
@@ -121,16 +123,17 @@ CPSolveResult solve_CP_CG(CP_CG& cp_cg, const vector<double>& dual_value, double
         for (int i = 0; i < sol->x.size(); i++) {
             if (sol->x[i].val() == 1) {
                 res.vertices.push_back(i);
+                //Take c value
+                res.val += dual_value[i];
             }
         }
-        
+
         delete sol;
         
     } else if (engine.stopped()) {
         res.stopped = true;
     }
 
-    // Trả về object kết quả
     return res;
 }
 

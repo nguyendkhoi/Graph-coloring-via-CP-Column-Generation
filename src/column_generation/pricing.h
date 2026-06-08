@@ -41,4 +41,16 @@ private:
     CP_CG(CP_CG& other);
 };
 
-CPSolveResult solve_CP_CG(CP_CG& cp_cg, const std::vector<double>& dual_value, double threshhold);
+CPSolveResult solve_CP_CG(
+    CP_CG& cp_cg,
+    const std::vector<double>& dual_value,
+    double threshold
+);
+
+// 4.2.2 Adaptive Thresholds for the Negative Reduced Cost Constraint
+inline double computeThreshold(double zRMP_new, double zRMP_old, double c = 1.0) {
+    if (zRMP_old <= 0.0) {
+        return c;
+    }
+    return (zRMP_new / zRMP_old) * c;
+}
