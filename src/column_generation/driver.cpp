@@ -93,45 +93,6 @@ int count_active_lambdas(const RMPSolution& sol) {
     return active;
 }
 
-void print_incumbent(const vector<StableColumn>& incumbent) {
-    cout << "============================================" << endl;
-    cout << "Incumbent coloring with " << incumbent.size()
-         << " stable sets:" << endl;
-
-    for (int i = 0; i < static_cast<int>(incumbent.size()); ++i) {
-        cout << "  Z_" << i << " :";
-        for (int v : incumbent[i].vertices) {
-            cout << ' ' << v;
-        }
-        cout << endl;
-    }
-}
-
-void print_active_columns(const ColumnPool& pool, const RMPSolution& sol) {
-    cout << "============================================" << endl;
-    cout << "First active RMP columns:" << endl;
-
-    int printed = 0;
-    for (int j = 0;
-         j < static_cast<int>(sol.lambda_value.size()) && printed < 10;
-         ++j) {
-        if (sol.lambda_value[j] <= 1e-6) {
-            continue;
-        }
-
-        cout << "  lambda_" << j << " = "
-             << fixed << setprecision(6) << sol.lambda_value[j]
-             << " | vertices:";
-
-        for (int v : pool.column(j).vertices) {
-            cout << ' ' << v;
-        }
-
-        cout << endl;
-        ++printed;
-    }
-}
-
 void print_final_report(
     int iterations,
     const RMPSolution& sol,
@@ -254,6 +215,7 @@ int run_column_generation(const MasterRunConfig& config) {
     MWSSResult pricing;
 
     auto solve_current_rmp = [&]() -> bool {
+        cout << "Run RMP" << endl;
         sol = rmp.solve();
         if (sol.status == GRB_OPTIMAL) {
             return true;
@@ -318,12 +280,16 @@ int run_column_generation(const MasterRunConfig& config) {
     }
 
     while (!closed_gap && !reached_max_iter) {
+        double decision_threshold = 1.0;
+        cout << "Run decision pricing with threshold = "
+             << fixed << setprecision(3) << decision_threshold << endl;
+
         bool found_decision_column =
             solve_decision_pricing(
                 G,
                 pool.column(0).vertices,
                 sol.dual_value,
-                1.0,
+                decision_threshold,
                 pricing
             );
 
@@ -341,6 +307,7 @@ int run_column_generation(const MasterRunConfig& config) {
     }
 
     while (!closed_gap && !reached_max_iter) {
+        cout << "Run MWSS pricing" << endl;
         bool found_mwss_column = solve_mwss(
             env,
             G,
@@ -380,13 +347,18 @@ int run_column_generation(const MasterRunConfig& config) {
             long long lower_bound =
                 lubbecke_desrosiers_bound(sol.objective, pricing.reduced_cost);
 
-            incumbent = augmented_columns;
-            incumbent_ub = static_cast<int>(augmented_columns.size());
-
             for (const StableColumn& col : augmented_columns) {
                 if (pool.insert(col)) {
                     rmp.add_column(col);
                 }
+            }
+
+            string step = "MWSS + augmented columns";
+            int augmented_ub = static_cast<int>(augmented_columns.size());
+            if (augmented_ub < incumbent_ub) {
+                incumbent = augmented_columns;
+                incumbent_ub = augmented_ub;
+                step = "MWSS + augmented improve";
             }
 
             print_iteration(
@@ -395,7 +367,7 @@ int run_column_generation(const MasterRunConfig& config) {
                 pricing.reduced_cost,
                 lower_bound,
                 incumbent_ub,
-                "MWSS + augmented",
+                step,
                 rmp.column_count()
             );
 
@@ -434,8 +406,6 @@ int run_column_generation(const MasterRunConfig& config) {
         closed_gap,
         converged_by_pricing
     );
-    print_incumbent(incumbent);
-    print_active_columns(pool, sol);
 
     return 0;
 }
