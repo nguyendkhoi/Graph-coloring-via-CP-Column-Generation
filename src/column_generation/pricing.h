@@ -4,15 +4,17 @@
 #include "gurobi_c++.h"
 #include <graph/graph.h>
 #include "../coloring/cp.h"
+#include <algorithm>
 #include <vector>
 
 #include <gecode/int.hh>
 #include <gecode/search.hh>
 
-struct MWSSResult {
-    StableColumn col;
+struct StableSetPricingResult {
+    StableColumn column;
     double reduced_cost = 0.0;
     bool stopped = false;
+    bool proven_optimal = false;
     int status = 0;
 };
 
@@ -20,40 +22,50 @@ bool is_stable_set(const Graph& G, const std::vector<int>& vertices);
 
 // Solve Maximum Weight Stable Set via Gurobi.
 // Returns true if a column with negative reduced cost was found.
-bool solve_mwss(
+bool solve_maximum_weight_stable_set_pricing(
     GRBEnv& env,
     const Graph& G,
     const std::vector<double>& dual_value,
-    MWSSResult& res,
+    StableSetPricingResult& result,
     double time_limit_seconds = 30.0
 );
 
 // 4 Constraint Programming-based Column Generation
-class CP_CG : public Gecode::Space {
+class DecisionPricingModel : public Gecode::Space {
 public:
     const Graph& G;
     Gecode::BoolVarArray x;
 
-    CP_CG(const Graph& graph, std::vector<int>max_clique);
+    DecisionPricingModel(const Graph& graph, std::vector<int> max_clique);
 
     Gecode::Space* copy() override;
 
-    void symetrique_breaking(std::vector<int> clique);
+    void add_symmetry_breaking_constraints(std::vector<int> clique);
+    void add_weighted_maximum_clique_filtering(
+        const std::vector<double>& dual_value,
+        double weight_threshold
+    );
 
 private:
-    CP_CG(CP_CG& other);
+    DecisionPricingModel(DecisionPricingModel& other);
 };
 
-CPSolveResult solve_CP_CG(
-    CP_CG& cp_cg,
+CPSolveResult solve_decision_pricing_model(
+    DecisionPricingModel& model,
     const std::vector<double>& dual_value,
-    double threshold
+    double weight_threshold,
+    const std::vector<int>& static_order
 );
 
 // 4.2.2 Adaptive Thresholds for the Negative Reduced Cost Constraint
-inline double computeThreshold(double zRMP_new, double zRMP_old, double c = 1.0) {
-    if (zRMP_old <= 0.0) {
-        return c;
+// Second paper formula: tau(i,j) = z_RMP^j / kappa_i(c*).
+inline double compute_adaptive_decision_threshold(
+    double rmp_objective,
+    double adaptive_lower_bound
+) {
+    constexpr double eps = 1e-6;
+    if (adaptive_lower_bound <= 0.0) {
+        return 1.0 + eps;
     }
-    return (zRMP_new / zRMP_old) * c;
+    return std::max(1.0 + eps, rmp_objective / adaptive_lower_bound);
 }

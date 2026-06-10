@@ -28,7 +28,7 @@ static bool is_valid_coloring(const vector<int>& colors, const Graph& G) {
 static int count_colors(const vector<int>& colors) {
     int mx = -1;
     for (int c : colors) mx = max(mx, c);
-    return mx + 1; // colors thường đánh từ 0
+    return mx + 1;
 }
 
 struct BenchRow {
@@ -99,6 +99,59 @@ static void write_csv(const string& path, const vector<BenchRow>& rows) {
     }
 }
 
+static CPSolveResult run_cp_upper_bound(
+    const Graph& G,
+    const vector<vector<int>>& clique_info,
+    int dsatur_ub,
+    double time_limit,
+    double& cp_time
+) {
+    int lb = clique_info.empty() ? 1 : (int)clique_info[0].size();
+
+    CPSolveResult best;
+    best.feasible = false;
+    best.num_colors = dsatur_ub;
+    best.stopped = false;
+    best.color = {};
+
+    auto t_start = chrono::high_resolution_clock::now();
+    int k = dsatur_ub - 1;
+
+    while (k >= lb) {
+        double elapsed = chrono::duration<double>(
+            chrono::high_resolution_clock::now() - t_start).count();
+        double remain = time_limit - elapsed;
+        if (remain <= 0.0) {
+            best.stopped = true;
+            break;
+        }
+
+        double budget = min(remain, max(5.0, remain / 3.0));
+
+        CPSolveResult res = solve_coloring_cp_with_reduction(
+            G,
+            clique_info,
+            k,
+            budget
+        );
+
+        if (res.feasible) {
+            best = res;
+            k = res.num_colors - 1;
+        } else if (res.stopped) {
+            best.stopped = true;
+            break;
+        } else {
+            break;
+        }
+    }
+
+    auto t_end = chrono::high_resolution_clock::now();
+    cp_time = chrono::duration<double>(t_end - t_start).count();
+
+    return best;
+}
+
 static BenchRow run_one(const string& path, double time_limit) {
     BenchRow r;
     r.instance = fs::path(path).filename().string();
@@ -110,7 +163,11 @@ static BenchRow run_one(const string& path, double time_limit) {
     for (int v = 0; v < r.n; ++v) deg_sum += (long long)G.neighbors(v).size();
     r.m = static_cast<int>(deg_sum / 2);
 
+    auto cp_t0 = chrono::high_resolution_clock::now();
     vector<vector<int>> clique_info = generate_clique(G, 20);
+    auto cp_t1 = chrono::high_resolution_clock::now();
+    double clique_time = chrono::duration<double>(cp_t1 - cp_t0).count();
+    r.cp_time = clique_time;
     r.clique_lb = clique_info.empty() ? 0 : (int)clique_info[0].size();
 
     // ---- DSATUR ----
@@ -126,19 +183,29 @@ static BenchRow run_one(const string& path, double time_limit) {
 
     // ---- CP-UB ----
     if (r.dsatur_k > 0) {
-        auto t0 = chrono::high_resolution_clock::now();
-        CPSolveResult res = cp_upper_bound(G, clique_info, r.dsatur_k, time_limit);
-        auto t1 = chrono::high_resolution_clock::now();
-        r.cp_time = chrono::duration<double>(t1 - t0).count();
-        r.cp_stopped = res.stopped;
-        if (res.feasible) {
-            r.cp_k = res.num_colors;
-            r.cp_valid = is_valid_coloring(res.color, G);
-            if (!r.cp_valid) r.cp_k = -1;
+        if (r.clique_lb == r.dsatur_k) {
+            r.cp_k = r.dsatur_k;
+            r.cp_stopped = false;
+            r.cp_valid = true;
+        } else {
+            double cp_solve_time = 0.0;
+            CPSolveResult res = run_cp_upper_bound(
+                G,
+                clique_info,
+                r.dsatur_k,
+                time_limit,
+                cp_solve_time
+            );
+            r.cp_time += cp_solve_time;
+            r.cp_stopped = res.stopped;
+            if (res.feasible) {
+                r.cp_k = res.num_colors;
+                r.cp_valid = is_valid_coloring(res.color, G);
+                if (!r.cp_valid) r.cp_k = -1;
+            }
         }
     } else {
         r.cp_k = -1;
-        r.cp_time = 0.0;
     }
 
     return r;

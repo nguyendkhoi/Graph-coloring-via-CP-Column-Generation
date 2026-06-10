@@ -23,7 +23,7 @@ public:
 
     Gecode::Space* copy() override;
 
-    void symetrique_breaking(std::vector<int> clique);
+    void add_symmetry_breaking_constraints(std::vector<int> clique);
     void print_solution() const;
 
 private:
@@ -48,9 +48,9 @@ CPSolveResult solve_coloring_cp(
     double time_limit
 );
 
-CPSolveResult cp_upper_bound(
+CPSolveResult solve_coloring_cp_with_reduction(
     const Graph& G,
     const std::vector<std::vector<int>>& clique_info,
-    int dsatur_ub,
+    int k,
     double time_limit
 );

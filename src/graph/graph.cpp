@@ -16,9 +16,7 @@ Graph::Graph(int vertices) : V(vertices) {
 
 void Graph::add_edge(int u, int v) {
     if (u == v) return;
-    // Kiểm tra biên để đảm bảo không bị tràn chỉ số mảng
-    if (u >= V || v >= V || u < 0 || v < 0) return; 
-    
+
     adj[u].insert(v);
     adj[v].insert(u);
 }
@@ -35,7 +33,6 @@ int Graph::num_vertices() const {
 Graph Graph::complement() const {
     Graph comp(this->V);
     for (int u = 0; u < V; u++) {
-        // Tối ưu: Đồ thị vô hướng đối xứng nên chỉ cần xét v từ u + 1
         for (int v = u + 1; v < V; v++) {
             if (!has_edge(u, v)) {
                 comp.add_edge(u, v);
@@ -85,7 +82,7 @@ Graph parser_dimacs_col(const string& file_path, bool zero_based) {
         
         if (tokens.empty()) continue;
         
-        // Bỏ qua dòng comment
+        // Skip comment
         if (tokens[0] == "c") {
             continue;
         }

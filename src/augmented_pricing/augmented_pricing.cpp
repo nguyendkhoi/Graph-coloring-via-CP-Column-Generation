@@ -2,59 +2,77 @@
 #include "../coloring/heuristic.h"
 #include "../graph/graph.h"
 
+#include <gecode/minimodel.hh>
+
 using namespace std;
 using namespace Gecode;
 
-AP::AP(int num_stable_set, int num_vertices, StableColumn col, const Graph& G) 
-    : k(num_stable_set), x(*this, k * num_vertices, 0, 1) {
+AugmentedPricingModel::AugmentedPricingModel(
+    int num_stable_sets,
+    int num_vertices,
+    StableColumn forced_column,
+    const Graph& G
+) : num_stable_sets(num_stable_sets),
+    x(*this, num_stable_sets * num_vertices, 0, 1) {
 
-    // Access X[i][v] means acces value of vertex v in stable set Zi
+    // X(i, v) is 1 iff vertex v belongs to stable set Z_i.
     auto X = [&](int i, int v) -> BoolVar {
         return x[i * num_vertices + v];
     };
 
-    // 1st Constraint each Zi are a stable set
-    for (int i = 0; i < k; i++) {
+    // Each Z_i must be a stable set.
+    for (int i = 0; i < num_stable_sets; i++) {
         for (const auto& [u, v] : G.edges()) {
-            BoolVarArgs args;
             rel(*this, X(i,u), BOT_AND, X(i, v), 0);
         }
     }
 
     for (int v = 0; v < num_vertices; v++) {
-        // 2nd constraint each vertex include in just one Zi
+        // Each vertex must be assigned to exactly one stable set.
         BoolVarArgs args;
-        for (int z = 0; z < k; z++) {
+        for (int z = 0; z < num_stable_sets; z++) {
             args << X(z, v);
         }
         linear(*this, args, IRT_EQ, 1);
 
-        // 3rd constraint Z1 = I(a_p)  (Z1 in paper corresponse to Z0)
-        if (col.contains_vertex(v)) {
+        // Force Z_0 to be the pricing column.
+        if (forced_column.contains_vertex(v)) {
             rel(*this, X(0, v), IRT_EQ, 1);
         } else {
             rel(*this, X(0, v), IRT_EQ, 0);
         }
     }
 
+    // Break symmetry between interchangeable color classes Z_1..Z_k.
+    for (int z = 1; z + 1 < num_stable_sets; ++z) {
+        BoolVarArgs current;
+        BoolVarArgs next;
+        for (int v = 0; v < num_vertices; ++v) {
+            current << X(z, v);
+            next << X(z + 1, v);
+        }
+        lex(*this, current, IRT_GQ, next);
+    }
 
     branch(*this, x, BOOL_VAR_DEGREE_MIN(), BOOL_VAL_MAX());
 }
 
-AP::AP(AP& other) : Space(other), k(other.k) {
+AugmentedPricingModel::AugmentedPricingModel(AugmentedPricingModel& other)
+    : Space(other), num_stable_sets(other.num_stable_sets) {
     x.update(*this, other.x);
 }
 
-Space* AP::copy() {
-    return new AP(*this);
+Space* AugmentedPricingModel::copy() {
+    return new AugmentedPricingModel(*this);
 }
 
-//Helper
-vector<StableColumn> AP::extract_columns(int num_vertices) const {
+vector<StableColumn> AugmentedPricingModel::extract_columns(
+    int num_vertices
+) const {
     vector<StableColumn> cols;
-    cols.reserve(k);
+    cols.reserve(num_stable_sets);
 
-    for (int i = 0; i < k; ++i) {
+    for (int i = 0; i < num_stable_sets; ++i) {
         vector<int> vertices;
         for (int v = 0; v < num_vertices; ++v) {
             if (x[i * num_vertices + v].val() == 1) { 
@@ -68,23 +86,28 @@ vector<StableColumn> AP::extract_columns(int num_vertices) const {
     return cols;
 }
 
-vector<StableColumn> solveAugmentedPricing(
-    const StableColumn& ap,
-    int k,
+vector<StableColumn> solve_augmented_pricing(
+    const StableColumn& forced_column,
+    int num_stable_sets,
     const Graph& G,
     double time_limit_seconds
 ) {
-    AP* model = new AP(k, G.num_vertices(), ap, G);
+    AugmentedPricingModel* model = new AugmentedPricingModel(
+        num_stable_sets,
+        G.num_vertices(),
+        forced_column,
+        G
+    );
     Search::Options opts;
     Search::TimeStop stop(
         static_cast<unsigned long long>(time_limit_seconds * 1000.0)
     );
     opts.stop = &stop;
 
-    DFS<AP> engine(model, opts);
+    DFS<AugmentedPricingModel> engine(model, opts);
     delete model;
 
-    if (AP* sol = engine.next()) {
+    if (AugmentedPricingModel* sol = engine.next()) {
         auto cols = sol->extract_columns(G.num_vertices());
         delete sol;
         return cols;

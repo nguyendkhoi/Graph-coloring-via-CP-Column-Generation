@@ -8,8 +8,8 @@ struct MasterRunConfig {
     int num_trials = 20;
     std::size_t seed = 40;
     int max_iter = 100000;
-    double mwss_time_limit_seconds = 30.0;
-    double augmented_time_limit_seconds = 5.0;
+    double mwss_time_limit_seconds = 40.0;
+    double augmented_time_limit_seconds = 40.0;
 };
 
 MasterRunConfig parse_master_args(int argc, char** argv);

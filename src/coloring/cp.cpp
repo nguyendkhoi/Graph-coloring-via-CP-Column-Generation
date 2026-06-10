@@ -4,7 +4,6 @@
 
 #include <vector>
 #include <algorithm>
-#include <chrono>
 #include <unordered_set>
 
 using namespace std;
@@ -20,7 +19,7 @@ ColoringCP::ColoringCP(
     if (!clique_info.empty() && !clique_info[0].empty()) {
         vector<int> target_clique = clique_info[0];
         clique_size = static_cast<int>(target_clique.size());
-        symetrique_breaking(target_clique);
+        add_symmetry_breaking_constraints(target_clique);
     }
 
     add_edge_constraints();
@@ -79,7 +78,7 @@ void ColoringCP::add_all_different(const vector<vector<int>>& clique_info) {
     }
 }
 
-void ColoringCP::symetrique_breaking(vector<int> clique) {
+void ColoringCP::add_symmetry_breaking_constraints(vector<int> clique) {
     sort(clique.begin(), clique.end(),
         [this](int a, int b) {
             return G.degree(a) > G.degree(b);
@@ -98,8 +97,6 @@ CPSolveResult solve_coloring_cp(
     const vector<vector<int>>& clique_info,
     double time_limit
 ) {
-    // Tạo object với các giá trị mặc định từ struct 
-    // (feasible = false, stopped = false, num_colors = -1, các mảng rỗng)
     CPSolveResult res; 
 
     if (!clique_info.empty() && static_cast<int>(clique_info[0].size()) > k) {
@@ -144,7 +141,7 @@ static vector<int> restore_coloring(
     for (int i = 0; i < (int)reduction.to_origin.size(); i++)
         full_colors[reduction.to_origin[i]] = reduced_colors[i];
 
-    for (int i = (int)reduction.removed_vertices.size() - 1; i >= 0; i--) {
+    for (int i = 0; i < (int)reduction.removed_vertices.size(); i++) {
         int v = reduction.removed_vertices[i];
         unordered_set<int> used;
         for (int u : G.neighbors(v))
@@ -157,17 +154,19 @@ static vector<int> restore_coloring(
     return full_colors;
 }
 
-CPSolveResult cp_upper_bound(
+CPSolveResult solve_coloring_cp_with_reduction(
     const Graph& G,
     const vector<vector<int>>& clique_info,
-    int dsatur_ub,
+    int k,
     double time_limit
 ) {
     int lb = clique_info.empty() ? 1 : (int)clique_info[0].size();
+    CPSolveResult res;
 
     GraphReduction reduction = reduce_by_degree(G, lb);
     bool is_reduced = !reduction.removed_vertices.empty();
 
+    // Create new clique
     vector<vector<int>> reduced_clique_info;
     for (const auto& clique : clique_info) {
         vector<int> remapped;
@@ -182,38 +181,12 @@ CPSolveResult cp_upper_bound(
     const Graph& solve_G = is_reduced ? reduction.reduced : G;
     const vector<vector<int>>& solve_clique = is_reduced ? reduced_clique_info : clique_info;
 
-    CPSolveResult best;
-    best.feasible = true;
-    best.num_colors = dsatur_ub;
-    best.stopped = false;
-    best.color = {};
+    res = solve_coloring_cp(solve_G, k, solve_clique, time_limit);
 
-    auto t_start = chrono::high_resolution_clock::now();
-    int k = dsatur_ub - 1;
-
-    while (k >= lb) {
-        double elapsed = chrono::duration<double>(
-            chrono::high_resolution_clock::now() - t_start).count();
-        double remain = time_limit - elapsed;
-        if (remain <= 0.0) { best.stopped = true; break; }
-
-        double budget = min(remain, max(5.0, remain / 3.0));
-
-        CPSolveResult r = solve_coloring_cp(solve_G, k, solve_clique, budget);
-
-        if (r.feasible) {
-            if (is_reduced) {
-                r.color = restore_coloring(r.color, reduction, G);
-                r.num_colors = *max_element(r.color.begin(), r.color.end()) + 1;
-            }
-            best = r;
-            k = r.num_colors - 1;
-        } else if (r.stopped) {
-            best.stopped = true;
-            break;
-        } else {
-            break;
-        }
+    if (res.feasible && is_reduced) {
+        res.color = restore_coloring(res.color, reduction, G);
+        res.num_colors = *max_element(res.color.begin(), res.color.end()) + 1;
     }
-    return best;
+
+    return res;
 }

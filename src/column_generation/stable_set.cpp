@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <stdexcept>
 #include <random>
-#include <unordered_set>
 #include <vector>
 
 using namespace std;
@@ -13,25 +12,43 @@ using namespace std;
 // Greedily extend a stable set to a maximal stable set.
 static void maximalize_stable_set(StableColumn& col, const Graph& G) {
     int n = G.num_vertices();
-    unordered_set<int> in_S(col.vertices.begin(), col.vertices.end());
 
-    unordered_set<int> forbidden;
+    vector<char> available(n, 1);
+
     for (int v : col.vertices) {
+        available[v] = 0;
         for (int u : G.neighbors(v)) {
-            forbidden.insert(u);
+            available[u] = 0;
         }
     }
 
-    for (int v = 0; v < n; v++) {
-        if (in_S.count(v)) continue;
-        if (forbidden.count(v)) continue;
+    vector<int> vertices_available;
+    vertices_available.reserve(n);
+
+    for (int v = 0; v < n; ++v) {
+        if (available[v]) {
+            vertices_available.push_back(v);
+        }
+    }
+
+    sort(vertices_available.begin(), vertices_available.end(),
+        [&G](int a, int b) {
+            if (G.degree(a) != G.degree(b)) {
+                return G.degree(a) < G.degree(b);
+            }
+            return a < b;
+        }
+    );
+
+    for (int v : vertices_available) {
+        if (!available[v]) continue;
 
         col.vertices.push_back(v);
-        in_S.insert(v);
+        available[v] = 0;
         col.bitset[v / 64] |= (1ULL << (v % 64));
 
         for (int u : G.neighbors(v)) {
-            forbidden.insert(u);
+            available[u] = 0;
         }
     }
 }

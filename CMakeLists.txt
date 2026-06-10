@@ -25,6 +25,7 @@ set(MAIN_SOURCES
 
 set(MASTER_SOURCES
     ${COMMON_SOURCES}
+    src/preprocessing/clique_processing.cpp
     src/column_generation/stable_set.cpp
     src/column_generation/rmp.cpp
     src/column_generation/pricing.cpp

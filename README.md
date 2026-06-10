@@ -51,7 +51,7 @@ The CP model (`src/cp_coloring/`) assigns one integer variable $x_v \in \{0,\ldo
 
 The search strategy is `INT_VAR_SIZE_MIN` (smallest domain first) with `INT_VAL_MIN`.
 
-The **`cp_upper_bound`** function iterates downward from `dsatur_ub - 1` to the clique lower bound, splitting the remaining time budget adaptively (`max(5s, remaining/3)` per call). It returns the best feasible coloring found or signals timeout.
+The benchmark driver iterates downward from `dsatur_ub - 1` to the clique lower bound, splitting the remaining time budget adaptively (`max(5s, remaining/3)` per call). It returns the best feasible coloring found or signals timeout.
 
 ### 2.2 Set-Partitioning LP and Column Generation
 
@@ -91,7 +91,7 @@ $$\text{subject to} \quad y_u + y_v \leq 1 \quad \forall (u,v) \in E$$
 
 $$y_v \in \{0,1\} \quad \forall v \in V$$
 
-`solve_mwss` returns `true` (new column added) iff the optimal weight exceeds $1 + \varepsilon$, i.e., reduced cost $< -\varepsilon$.
+`solve_maximum_weight_stable_set_pricing` returns `true` (new column added) iff the optimal weight exceeds $1 + \varepsilon$, i.e., reduced cost $< -\varepsilon$.
 
 ---
 
@@ -135,11 +135,11 @@ $$y_v \in \{0,1\} \quad \forall v \in V$$
 | `random_sequential_greedy` | Random-order greedy (used to seed column pool)               |
 | `generate_clique`          | Multiple cliques via complement-graph DSATUR + random greedy |
 | `ColoringCP`               | Gecode CP model with clique AllDifferent + symmetry          |
-| `cp_upper_bound`           | Iterative CP improvement from DSATUR bound downward          |
+| `run_cp_upper_bound`       | Benchmark-side iterative CP improvement from DSATUR bound downward |
 | `StableColumn`             | Stable set column: vertex list + uint64 bitset               |
 | `ColumnPool`               | Dedup-safe stable-set repository                             |
 | `RMPSolver`                | Gurobi LP for set-partitioning RMP                           |
-| `solve_mwss`               | Gurobi MILP pricing: maximum weight stable set               |
+| `solve_maximum_weight_stable_set_pricing` | Gurobi MILP pricing: maximum weight stable set |
 
 ---
 
@@ -347,7 +347,7 @@ At convergence, `ceil(LP objective)` is printed as the LP lower bound.
 
 **RMP column addition**: Gurobi columns are added incrementally via `GRBColumn::addTerm`, linking each column variable to the relevant vertex coverage constraints. No model rebuild needed — `model.update()` is called implicitly by the next `optimize()`.
 
-**Time budget in CP**: `cp_upper_bound` splits the global time limit adaptively. Each sub-call receives `min(remaining, max(5s, remaining/3))`, preventing any single k-value attempt from consuming the full budget while still giving sufficient time to the first few attempts.
+**Time budget in CP benchmark**: `run_cp_upper_bound` in `main.cpp` splits the global time limit adaptively. Each sub-call receives `min(remaining, max(5s, remaining/3))`, preventing any single k-value attempt from consuming the full budget while still giving sufficient time to the first few attempts.
 
 ## 10. References
 

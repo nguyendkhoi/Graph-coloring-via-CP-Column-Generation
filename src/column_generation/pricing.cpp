@@ -24,22 +24,21 @@ bool is_stable_set(const Graph& G, const vector<int>& vertices) {
     return true;
 }
 
-// Optimalize pricing
-bool solve_mwss(
+// Solve the Maximum Weight Stable Set pricing problem.
+bool solve_maximum_weight_stable_set_pricing(
     GRBEnv& env,
     const Graph& G,
     const vector<double>& dual_value,
-    MWSSResult& res,
+    StableSetPricingResult& result,
     double time_limit_seconds
 ) {
-    res = MWSSResult{};
+    result = StableSetPricingResult{};
 
     GRBModel model(env);
     double eps = 1e-6;
 
     model.set(GRB_IntAttr_ModelSense, GRB_MAXIMIZE);
     model.set(GRB_DoubleParam_TimeLimit, time_limit_seconds);
-    model.set(GRB_DoubleParam_BestObjStop, 1.0 + eps);
 
     int n = G.num_vertices();
     if (static_cast<int>(dual_value.size()) != n) {
@@ -60,8 +59,9 @@ bool solve_mwss(
 
     try {
         model.optimize();
-        res.status = model.get(GRB_IntAttr_Status);
-        res.stopped = (res.status == GRB_TIME_LIMIT);
+        result.status = model.get(GRB_IntAttr_Status);
+        result.stopped = (result.status == GRB_TIME_LIMIT);
+        result.proven_optimal = (result.status == GRB_OPTIMAL);
 
         int sol_count = model.get(GRB_IntAttr_SolCount);
         if (sol_count > 0) {
@@ -73,9 +73,9 @@ bool solve_mwss(
                     weight += dual_value[v];
                 }
             }
-            res.col = StableColumn(input_vertices, n);
-            res.reduced_cost = 1.0 - weight;
-            return res.reduced_cost < -eps;
+            result.column = StableColumn(input_vertices, n);
+            result.reduced_cost = 1.0 - weight;
+            return result.reduced_cost < -eps;
         }
 
         return false;
@@ -90,49 +90,60 @@ bool solve_mwss(
 // Constraint Programming-based Column Generation
 // Decision pricing
 // (14-15)
-CP_CG::CP_CG(const Graph& graph, std::vector<int> max_clique) : G(graph), x(*this, graph.num_vertices(), 0, 1) {
+DecisionPricingModel::DecisionPricingModel(
+    const Graph& graph,
+    std::vector<int> max_clique
+) : G(graph), x(*this, graph.num_vertices(), 0, 1) {
+    (void)max_clique;
+
     // (18)
     for (auto& [u, v] : graph.edges()) {
         if (u < v) {
             rel(*this, x[u] + x[v] <= 1);
         }
     }
-
-    // 4.1 Weighted Maximum Clique Constraint
-    symetrique_breaking(max_clique);
-
-}
-
-CP_CG::CP_CG(CP_CG& other)
-    : Space(other), G(other.G) {
-    x.update(*this, other.x);
-}
-
-Space* CP_CG::copy() {
-    return new CP_CG(*this);
 }
 
 // (16-17-19)
-CPSolveResult solve_CP_CG(CP_CG& cp_cg, const vector<double>& dual_value, double threshold) {
+CPSolveResult solve_decision_pricing_model(
+    DecisionPricingModel& model,
+    const vector<double>& dual_value,
+    double weight_threshold,
+    const vector<int>& static_order
+) {
     CPSolveResult res;
+
+    model.add_weighted_maximum_clique_filtering(dual_value, weight_threshold);
 
     IntArgs c(dual_value.size());
     for (size_t i = 0; i < dual_value.size(); ++i) {
         c[i] = static_cast<int>(std::round(dual_value[i] * SCALE));
     }
 
-    int int_threshold = static_cast<int>(std::round(threshold * SCALE));
+    int int_threshold = static_cast<int>(std::round(weight_threshold * SCALE));
     
-    linear(cp_cg, c, cp_cg.x, IRT_GR, int_threshold);
+    linear(model, c, model.x, IRT_GR, int_threshold);
 
     // 4.2.1 Shuffled Static Order
-    Gecode::Rnd r(25);
-    branch(cp_cg, cp_cg.x, BOOL_VAR_RND(r), BOOL_VAL_MAX());
+    BoolVarArgs ordered_vars;
+    vector<char> seen(model.x.size(), 0);
+    for (int v : static_order) {
+        if (v >= 0 && v < model.x.size() && !seen[v]) {
+            ordered_vars << model.x[v];
+            seen[v] = 1;
+        }
+    }
+    for (int v = 0; v < model.x.size(); ++v) {
+        if (!seen[v]) {
+            ordered_vars << model.x[v];
+        }
+    }
+    branch(model, ordered_vars, BOOL_VAR_NONE(), BOOL_VAL_MAX());
 
     Search::Options opts;
-    DFS<CP_CG> engine(&cp_cg, opts);
+    DFS<DecisionPricingModel> engine(&model, opts);
 
-    if (CP_CG* sol = engine.next()) {
+    if (DecisionPricingModel* sol = engine.next()) {
         res.feasible = true;
         
         for (int i = 0; i < sol->x.size(); i++) {
@@ -152,15 +163,43 @@ CPSolveResult solve_CP_CG(CP_CG& cp_cg, const vector<double>& dual_value, double
     return res;
 }
 
-void CP_CG::symetrique_breaking(vector<int> clique) {
-    sort(clique.begin(), clique.end(),
-        [this](int a, int b) {
-            return G.degree(a) > G.degree(b);
-        }
-    );
+void DecisionPricingModel::add_symmetry_breaking_constraints(vector<int> clique) {
+    (void)clique;
+    // The paper's weighted-clique filtering is not a fixing constraint.
+}
 
-    BoolVarArgs clique_vars;
-    for (int i = 0; i < static_cast<int>(clique.size()); i++) {
-        rel(*this, x[clique[i]], IRT_EQ, 1);
+void DecisionPricingModel::add_weighted_maximum_clique_filtering(
+    const vector<double>& dual_value,
+    double weight_threshold
+) {
+    int n = G.num_vertices();
+    if (static_cast<int>(dual_value.size()) != n) {
+        throw invalid_argument("dual_value size must match number of vertices");
     }
+
+    for (int v = 0; v < n; ++v) {
+        double bound = max(0.0, dual_value[v]);
+
+        for (int u = 0; u < n; ++u) {
+            if (u == v) {
+                continue;
+            }
+            if (!G.has_edge(u, v)) {
+                bound += max(0.0, dual_value[u]);
+            }
+        }
+
+        if (bound <= weight_threshold + 1e-9) {
+            rel(*this, x[v], IRT_EQ, 0);
+        }
+    }
+}
+
+DecisionPricingModel::DecisionPricingModel(DecisionPricingModel& other)
+    : Space(other), G(other.G) {
+    x.update(*this, other.x);
+}
+
+Space* DecisionPricingModel::copy() {
+    return new DecisionPricingModel(*this);
 }

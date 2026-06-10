@@ -29,47 +29,66 @@ vector<int> find_stable_set(const vector<int>& coloring) {
 }
 
 // Maximal stable set
-vector<int> maximalize_stable_set(const vector<int>& stable_set, const Graph& G) {
+void maximalize_stable_set(vector<int>& stable_set, const Graph& G) {
     int n = G.num_vertices();
-    vector<char> in_set(n, 0);
-    vector<char> blocked(n, 0);
 
-    vector<int> result = stable_set;
+    vector<char> available(n, 1);
+
     for (int v : stable_set) {
-        in_set[v] = 1;
-        for (int u : G.neighbors(v))
-            blocked[u] = 1;
+        available[v] = 0;
+        for (int u : G.neighbors(v)) {
+            available[u] = 0;
+        }
     }
 
-    for (int v = 0; v < n; v++) {
-        if (in_set[v] || blocked[v]) continue;
-        result.push_back(v);
-        in_set[v] = 1;
-        for (int u : G.neighbors(v))
-            blocked[u] = 1;
+    vector<int> vertices_available;
+    vertices_available.reserve(n);
+
+    for (int v = 0; v < n; ++v) {
+        if (available[v]) {
+            vertices_available.push_back(v);
+        }
     }
 
-    return result;
+    sort(vertices_available.begin(), vertices_available.end(),
+        [&G](int a, int b) {
+            if (G.degree(a) != G.degree(b)) {
+                return G.degree(a) < G.degree(b);
+            }
+            return a < b;
+        }
+    );
+
+    for (int v : vertices_available) {
+        if (!available[v]) continue;
+
+        stable_set.push_back(v);
+        available[v] = 0;
+
+        for (int u : G.neighbors(v)) {
+            available[u] = 0;
+        }
+    }
 }
 
 // Find largest_clique
 vector<int> largest_clique(const Graph& G_complement) {
     vector<int> coloring = DSATUR_coloring(G_complement).first;
     vector<int> s = find_stable_set(coloring);
-    return maximalize_stable_set(s, G_complement);
+    maximalize_stable_set(s, G_complement);
+    return s;
 }
 
-// Remove vertices with degree < clique size - 1
+// Remove vertices with degree < clique size
 GraphReduction reduce_by_degree(const Graph& G, int clique_size) {
     int n = G.num_vertices();
-    int threshold = clique_size - 1;
 
     GraphReduction result;
     result.to_reduced.assign(n, -1);
 
     int idx = 0;
     for (int v = 0; v < n; v++) {
-        if (G.degree(v) < threshold) {
+        if (G.degree(v) < clique_size) {
             result.removed_vertices.push_back(v);
         } else {
             result.to_reduced[v] = idx++;
