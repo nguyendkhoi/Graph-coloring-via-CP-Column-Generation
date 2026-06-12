@@ -312,7 +312,7 @@ Sample instances in `tests/`:
 ### CP Benchmark CSV
 
 ```
-instance,n,m,clique_lb,dsatur_k,dsatur_time,dsatur_valid,cp_k,cp_time,cp_stopped,cp_valid
+instance,n,m,clique_lb,dsatur_k,dsatur_time,cp_k,cp_time,cp_stopped
 ```
 
 | Column       | Meaning                                          |

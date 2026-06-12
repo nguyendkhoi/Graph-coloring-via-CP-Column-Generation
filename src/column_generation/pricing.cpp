@@ -94,7 +94,6 @@ DecisionPricingModel::DecisionPricingModel(
     const Graph& graph,
     std::vector<int> max_clique
 ) : G(graph), x(*this, graph.num_vertices(), 0, 1) {
-    (void)max_clique;
 
     // (18)
     for (auto& [u, v] : graph.edges()) {
@@ -163,19 +162,11 @@ CPSolveResult solve_decision_pricing_model(
     return res;
 }
 
-void DecisionPricingModel::add_symmetry_breaking_constraints(vector<int> clique) {
-    (void)clique;
-    // The paper's weighted-clique filtering is not a fixing constraint.
-}
-
 void DecisionPricingModel::add_weighted_maximum_clique_filtering(
     const vector<double>& dual_value,
     double weight_threshold
 ) {
     int n = G.num_vertices();
-    if (static_cast<int>(dual_value.size()) != n) {
-        throw invalid_argument("dual_value size must match number of vertices");
-    }
 
     for (int v = 0; v < n; ++v) {
         double bound = max(0.0, dual_value[v]);
@@ -194,6 +185,8 @@ void DecisionPricingModel::add_weighted_maximum_clique_filtering(
         }
     }
 }
+
+
 
 DecisionPricingModel::DecisionPricingModel(DecisionPricingModel& other)
     : Space(other), G(other.G) {

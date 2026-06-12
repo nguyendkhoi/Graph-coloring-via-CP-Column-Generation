@@ -37,6 +37,8 @@ struct CPSolveResult {
     bool stopped = false;
     int num_colors = -1;
     double val = 0.0;
+    unsigned long long nodes = 0;
+    unsigned long long failures = 0;
     std::vector<int> color;
     std::vector<int> vertices;
 };

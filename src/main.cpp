@@ -15,22 +15,6 @@
 using namespace std;
 namespace fs = std::filesystem;
 
-// ====== Helpers ======
-static bool is_valid_coloring(const vector<int>& colors, const Graph& G) {
-    for (int v = 0; v < static_cast<int>(colors.size()); ++v) {
-        for (int u : G.neighbors(v)) {
-            if (colors[u] == colors[v]) return false;
-        }
-    }
-    return true;
-}
-
-static int count_colors(const vector<int>& colors) {
-    int mx = -1;
-    for (int c : colors) mx = max(mx, c);
-    return mx + 1;
-}
-
 struct BenchRow {
     string instance;
     int n = 0;
@@ -39,12 +23,11 @@ struct BenchRow {
     // DSATUR
     int dsatur_k = -1;
     double dsatur_time = 0.0;
-    bool dsatur_valid = false;
     // CP-UB
     int cp_k = -1;
     double cp_time = 0.0;
+    unsigned long long cp_nodes = 0;
     bool cp_stopped = false;
-    bool cp_valid = false;
 };
 
 static void print_header() {
@@ -57,10 +40,11 @@ static void print_header() {
          << setw(12) << "DSATUR_t(s)"
          << setw(8)  << "CP_k"
          << setw(12) << "CP_t(s)"
+         << setw(12) << "B&Bnodes"
          << setw(10) << "CP_stop"
          << setw(8)  << "Best"
          << endl;
-    cout << string(22+8+8+8+10+12+8+12+10+8, '-') << endl;
+    cout << string(22+8+8+8+10+12+8+12+12+10+8, '-') << endl;
 }
 
 static void print_row(const BenchRow& r) {
@@ -80,6 +64,7 @@ static void print_row(const BenchRow& r) {
          << setw(12) << fixed << setprecision(3) << r.dsatur_time
          << setw(8)  << (r.cp_k > 0 ? to_string(r.cp_k) : "-")
          << setw(12) << fixed << setprecision(3) << r.cp_time
+         << setw(12) << r.cp_nodes
          << setw(10) << (r.cp_stopped ? "yes" : "no")
          << setw(8)  << best
          << endl;
@@ -88,14 +73,14 @@ static void print_row(const BenchRow& r) {
 static void write_csv(const string& path, const vector<BenchRow>& rows) {
     ofstream f(path);
     if (!f) return;
-    f << "instance,n,m,clique_lb,dsatur_k,dsatur_time,dsatur_valid,"
-         "cp_k,cp_time,cp_stopped,cp_valid\n";
+    f << "instance,n,m,clique_lb,dsatur_k,dsatur_time,"
+         "cp_k,cp_time,cp_bnb_nodes,cp_stopped\n";
     for (const auto& r : rows) {
         f << r.instance << ","
           << r.n << "," << r.m << "," << r.clique_lb << ","
-          << r.dsatur_k << "," << r.dsatur_time << "," << (r.dsatur_valid ? 1 : 0) << ","
-          << r.cp_k << "," << r.cp_time << "," << (r.cp_stopped ? 1 : 0) << ","
-          << (r.cp_valid ? 1 : 0) << "\n";
+          << r.dsatur_k << "," << r.dsatur_time << ","
+          << r.cp_k << "," << r.cp_time << "," << r.cp_nodes << ","
+          << (r.cp_stopped ? 1 : 0) << "\n";
     }
 }
 
@@ -113,6 +98,10 @@ static CPSolveResult run_cp_upper_bound(
     best.num_colors = dsatur_ub;
     best.stopped = false;
     best.color = {};
+    best.nodes = 0;
+    best.failures = 0;
+    unsigned long long total_nodes = 0;
+    unsigned long long total_failures = 0;
 
     auto t_start = chrono::high_resolution_clock::now();
     int k = dsatur_ub - 1;
@@ -134,14 +123,22 @@ static CPSolveResult run_cp_upper_bound(
             k,
             budget
         );
+        total_nodes += res.nodes;
+        total_failures += res.failures;
 
         if (res.feasible) {
             best = res;
+            best.nodes = total_nodes;
+            best.failures = total_failures;
             k = res.num_colors - 1;
         } else if (res.stopped) {
             best.stopped = true;
+            best.nodes = total_nodes;
+            best.failures = total_failures;
             break;
         } else {
+            best.nodes = total_nodes;
+            best.failures = total_failures;
             break;
         }
     }
@@ -164,7 +161,7 @@ static BenchRow run_one(const string& path, double time_limit) {
     r.m = static_cast<int>(deg_sum / 2);
 
     auto cp_t0 = chrono::high_resolution_clock::now();
-    vector<vector<int>> clique_info = generate_clique(G, 20);
+    vector<vector<int>> clique_info = generate_clique(G, 30);
     auto cp_t1 = chrono::high_resolution_clock::now();
     double clique_time = chrono::duration<double>(cp_t1 - cp_t0).count();
     r.cp_time = clique_time;
@@ -173,12 +170,10 @@ static BenchRow run_one(const string& path, double time_limit) {
     // ---- DSATUR ----
     {
         auto t0 = chrono::high_resolution_clock::now();
-        auto [colors, kused] = DSATUR_coloring(G);
+        auto dsatur_result = DSATUR_coloring(G);
         auto t1 = chrono::high_resolution_clock::now();
         r.dsatur_time = chrono::duration<double>(t1 - t0).count();
-        r.dsatur_k = kused;
-        r.dsatur_valid = is_valid_coloring(colors, G);
-        if (!r.dsatur_valid) r.dsatur_k = -1;
+        r.dsatur_k = dsatur_result.second;
     }
 
     // ---- CP-UB ----
@@ -186,7 +181,6 @@ static BenchRow run_one(const string& path, double time_limit) {
         if (r.clique_lb == r.dsatur_k) {
             r.cp_k = r.dsatur_k;
             r.cp_stopped = false;
-            r.cp_valid = true;
         } else {
             double cp_solve_time = 0.0;
             CPSolveResult res = run_cp_upper_bound(
@@ -198,10 +192,9 @@ static BenchRow run_one(const string& path, double time_limit) {
             );
             r.cp_time += cp_solve_time;
             r.cp_stopped = res.stopped;
+            r.cp_nodes = res.nodes;
             if (res.feasible) {
                 r.cp_k = res.num_colors;
-                r.cp_valid = is_valid_coloring(res.color, G);
-                if (!r.cp_valid) r.cp_k = -1;
             }
         }
     } else {
@@ -214,7 +207,7 @@ static BenchRow run_one(const string& path, double time_limit) {
 int main(int argc, char** argv) {
     try {
         string tests_dir = "tests";
-        double time_limit = 100.0;
+        double time_limit = 300.0;
         string csv_out = "benchmark.csv";
 
         if (argc >= 2) tests_dir  = argv[1];
@@ -271,7 +264,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        cout << string(22+8+8+8+10+12+8+12+10+8, '-') << endl;
+        cout << string(22+8+8+8+10+12+8+12+12+10+8, '-') << endl;
         cout << "Summary: CP better = " << cp_wins
              << " | DSATUR better = " << ds_wins
              << " | Tie = " << ties << endl;

@@ -97,7 +97,7 @@ CPSolveResult solve_coloring_cp(
     const vector<vector<int>>& clique_info,
     double time_limit
 ) {
-    CPSolveResult res; 
+    CPSolveResult res;
 
     if (!clique_info.empty() && static_cast<int>(clique_info[0].size()) > k) {
         return res; 
@@ -110,8 +110,13 @@ CPSolveResult solve_coloring_cp(
     opts.stop = &stop;
 
     DFS<ColoringCP> engine(problem, opts);
+    ColoringCP* sol = engine.next();
 
-    if (ColoringCP* sol = engine.next()) {
+    Search::Statistics stat = engine.statistics();
+    res.nodes = stat.node;
+    res.failures = stat.fail;
+
+    if (sol) {
         res.feasible = true;
         int max_color = -1;
         

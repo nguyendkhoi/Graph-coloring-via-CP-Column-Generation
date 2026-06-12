@@ -40,7 +40,6 @@ public:
 
     Gecode::Space* copy() override;
 
-    void add_symmetry_breaking_constraints(std::vector<int> clique);
     void add_weighted_maximum_clique_filtering(
         const std::vector<double>& dual_value,
         double weight_threshold
