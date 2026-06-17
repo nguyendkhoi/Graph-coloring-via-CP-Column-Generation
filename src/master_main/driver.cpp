@@ -251,7 +251,8 @@ int run_column_generation(const MasterRunConfig& config) {
                     cg_iter,
                     G,
                     sol.dual_value,
-                    pool
+                    pool,
+                    pricing_result.column
                 );
 
                 if (pricing_result.proven_optimal) {
@@ -308,7 +309,8 @@ int run_column_generation(const MasterRunConfig& config) {
                         cg_iter,
                         G,
                         sol.dual_value,
-                        pool
+                        pool,
+                        pricing_result.column
                     );
                     break;
                 }
@@ -336,7 +338,8 @@ int run_column_generation(const MasterRunConfig& config) {
             cg_iter,
             G,
             sol.dual_value,
-            pool
+            pool,
+            pricing_result.column
         );
 
         vector<StableColumn> augmented_columns;

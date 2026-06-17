@@ -46,7 +46,8 @@ void log_vertex_features(
     int cg_iter,
     const Graph& G,
     const std::vector<double>& dual_value,
-    const ColumnPool& pool
+    const ColumnPool& pool,
+    const StableColumn& selected_column
 );
 
 void write_run_summary(

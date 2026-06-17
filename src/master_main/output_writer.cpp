@@ -12,6 +12,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
+// Output folder naming
 string safe_instance_folder_name(const MasterRunSummary& summary) {
     string name = fs::path(summary.instance).stem().string();
     if (name.empty()) {
@@ -32,6 +33,7 @@ string safe_instance_folder_name(const MasterRunSummary& summary) {
 
 } // namespace
 
+// Run folder setup and raw stream helpers
 bool JsonlLogger::open(
     const MasterRunConfig& config,
     MasterRunSummary& summary
@@ -45,14 +47,26 @@ bool JsonlLogger::open(
     fs::create_directories(run_dir);
 
     summary.run_output_dir = run_dir.string();
-    summary.run_log_path = (run_dir / "records.jsonl").string();
+    summary.run_log_path = (run_dir / "records.csv").string();
     summary.summary_csv_path = (run_dir / "summary.csv").string();
     summary.summary_json_path = (run_dir / "summary.json").string();
 
     path = summary.run_log_path;
-    vertex_path = (run_dir / "vertex_features.jsonl").string();
+    vertex_path = (run_dir / "vertex_features.csv").string();
     stream.open(path, ios::out | ios::trunc);
     vertex_stream.open(vertex_path, ios::out | ios::trunc);
+
+    if (stream) {
+        stream << "cg_iteration,rmp_value,number_of_columns,"
+               << "last_reduced_cost,dual_mean,dual_variance,"
+               << "rmp_time,pricing_time\n";
+    }
+    if (vertex_stream) {
+        vertex_stream << "iteration,vertex_id,degree,normalized_degree,"
+                      << "dual,weighted_neighbor_dual,complement_degree,"
+                      << "stable_set_occurrences,is_selected\n";
+    }
+
     return static_cast<bool>(stream) && static_cast<bool>(vertex_stream);
 }
 
@@ -70,6 +84,7 @@ void JsonlLogger::write_vertex(const string& record) {
 
 namespace {
 
+// Shared feature helpers
 pair<double, double> mean_and_variance(const vector<double>& values) {
     if (values.empty()) {
         return {0.0, 0.0};
@@ -112,6 +127,7 @@ double weighted_neighbor_dual(
     return total;
 }
 
+// Run summary output
 vector<string> summary_columns() {
     return {
         "run_id",
@@ -247,35 +263,17 @@ void write_summary_json(
 
 } // namespace
 
+// Records and feature output
 void log_run_start(
     JsonlLogger& logger,
     const MasterRunConfig& config,
     const MasterRunSummary& summary,
     int initial_columns
 ) {
-    ostringstream out;
-    out << "{"
-        << "\"instance\":" << json_string(summary.instance) << ","
-        << "\"instance_path\":" << json_string(summary.instance_path) << ","
-        << "\"seed\":" << summary.seed << ","
-        << "\"git_commit\":" << json_string(current_git_commit_short()) << ","
-        << "\"compiler\":" << json_string(compiler_name()) << ","
-        << "\"gecode_version\":\"6.x\","
-        << "\"threads\":" << config.threads << ","
-        << "\"time_limit\":" << json_number(config.time_limit_seconds) << ","
-        << "\"decision_pricing_limit\":"
-        << json_number(config.decision_pricing_limit_seconds) << ","
-        << "\"exact_pricing_limit\":"
-        << json_number(config.mwss_time_limit_seconds) << ","
-        << "\"augmented_pricing_limit\":"
-        << json_number(config.augmented_time_limit_seconds) << ","
-        << "\"requested_initial_columns\":"
-        << config.initial_columns_target << ","
-        << "\"initial_columns\":" << initial_columns << ","
-        << "\"vertex_ordering\":" << json_string(config.vertex_ordering) << ","
-        << "\"enable_ml\":" << json_bool(config.enable_ml)
-        << "}";
-    logger.write(out.str());
+    (void)logger;
+    (void)config;
+    (void)summary;
+    (void)initial_columns;
 }
 
 void log_pricing_iteration(
@@ -292,22 +290,19 @@ void log_pricing_iteration(
 ) {
     auto [dual_mean, dual_variance] = mean_and_variance(sol.dual_value);
 
+    (void)config;
+    (void)run_id;
+    (void)pricing_id;
+
     ostringstream out;
-    out << "{"
-        << "\"record_type\":\"pricing_iteration\","
-        << "\"schema_version\":" << config.schema_version << ","
-        << "\"run_id\":" << json_string(run_id) << ","
-        << "\"bp_node_id\":0,"
-        << "\"cg_iteration\":" << cg_iter << ","
-        << "\"pricing_id\":" << json_string(pricing_id) << ","
-        << "\"rmp_value\":" << json_number(sol.objective) << ","
-        << "\"number_of_columns\":" << column_count << ","
-        << "\"last_reduced_cost\":" << json_number(last_reduced_cost) << ","
-        << "\"dual_mean\":" << json_number(dual_mean) << ","
-        << "\"dual_variance\":" << json_number(dual_variance) << ","
-        << "\"rmp_time\":" << json_number(rmp_time) << ","
-        << "\"pricing_time\":" << json_number(pricing_time)
-        << "}";
+    out << cg_iter << ","
+        << json_number(sol.objective) << ","
+        << column_count << ","
+        << json_number(last_reduced_cost) << ","
+        << json_number(dual_mean) << ","
+        << json_number(dual_variance) << ","
+        << json_number(rmp_time) << ","
+        << json_number(pricing_time);
     logger.write(out.str());
 }
 
@@ -317,7 +312,8 @@ void log_vertex_features(
     int cg_iter,
     const Graph& G,
     const vector<double>& dual_value,
-    const ColumnPool& pool
+    const ColumnPool& pool,
+    const StableColumn& selected_column
 ) {
     if (!config.log_vertex_features) {
         return;
@@ -336,18 +332,15 @@ void log_vertex_features(
             : 0.0;
 
         ostringstream out;
-        out << "{"
-            << "\"iteration\":" << cg_iter << ","
-            << "\"vertex_id\":" << v << ","
-            << "\"degree\":" << degree << ","
-            << "\"normalized_degree\":"
+        out << cg_iter << ","
+            << v << ","
+            << degree << ","
             << json_number(normalized_degree) << ","
-            << "\"dual\":" << json_number(dual) << ","
-            << "\"weighted_neighbor_dual\":"
+            << json_number(dual) << ","
             << json_number(weighted_neighbor_dual(G, dual_value, v)) << ","
-            << "\"complement_degree\":" << (n - 1 - degree) << ","
-            << "\"stable_set_occurrences\":" << frequencies[v]
-            << "}";
+            << (n - 1 - degree) << ","
+            << frequencies[v] << ","
+            << (selected_column.contains_vertex(v) ? 1 : 0);
         logger.write_vertex(out.str());
     }
 }

@@ -359,8 +359,8 @@ master_cp/runs/<instance>/<run_id>/
 
 The folder contains:
 
-- `records.jsonl`: structured JSONL records for `run_start` and `pricing_iteration`
-- `vertex_features.jsonl`: one vertex-feature JSON object per vertex per CG iteration
+- `records.csv`: pricing-iteration rows with a header
+- `vertex_features.csv`: vertex-feature rows with a header, including `is_selected` (`1` if the vertex is in the pricing column selected at that iteration, else `0`)
 - `summary.csv`: one-row CSV summary for this run
 - `summary.json`: JSON summary for this run
 
