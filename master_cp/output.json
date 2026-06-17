@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "log_dir": "master_cp/runs",
+  "summary_path": "master_cp/results/master_run_summary.csv",
+  "append_summary": true,
+  "columns": "run_id,run_log_path,instance_path,instance,n,m,num_trials,seed,threads,time_limit_seconds,run_time_seconds,iterations,rmp_status,lp_objective,proven_lb,incumbent_ub,column_count,active_lambdas,total_lambdas,closed_gap,converged_by_pricing,reached_max_iter,reached_time_limit,exit_code"
+}

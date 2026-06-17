@@ -235,8 +235,10 @@ Runs the full column-generation loop on a single instance: initializes the colum
 
 If no arguments are passed, `main_master` reads defaults from:
 
-- `master_cp/config.txt` for run parameters
-- `master_cp/output.txt` for the CSV result path and column order
+- `master_cp/solver_config.json` for solver/run parameters
+- `master_cp/output.json` for JSONL log directory, CSV summary path, and CSV column order
+
+Legacy `master_cp/config.txt` and `master_cp/output.txt` are still supported as fallback files.
 
 | Argument                   | Default              | Description                                    |
 | -------------------------- | -------------------- | ---------------------------------------------- |
@@ -245,7 +247,7 @@ If no arguments are passed, `main_master` reads defaults from:
 | `seed`                     | `40`                 | RNG seed for reproducibility                   |
 | `mwss_time_limit_sec`      | `40`                 | MWSS pricing time budget                       |
 | `augmented_time_limit_sec` | `40`                 | Augmented pricing time budget                  |
-| `csv_output`               | From `output.txt`    | Result CSV path                                |
+| `csv_output`               | From `output.json`   | Result CSV path                                |
 
 Example:
 
@@ -352,11 +354,26 @@ At convergence, `ceil(LP objective)` is printed as the LP lower bound.
 ### Column Generation CSV
 
 `main_master` appends one summary row per run to the path configured in
-`master_cp/output.txt`. By default this is:
+`master_cp/output.json`. By default this is:
 
 ```
-master_cp/results/master_results.csv
+master_cp/results/master_run_summary.csv
 ```
+
+### Column Generation JSONL
+
+Each `main_master` run generates a UUID `run_id` and writes structured JSONL
+records to:
+
+```
+master_cp/runs/<run_id>.jsonl
+```
+
+The log includes:
+
+- `run_start`: solver config and metadata such as `run_id`, instance, seed, git commit, compiler, threads, and time limit
+- `pricing_iteration`: one record per CG pricing iteration with RMP value, column count, reduced cost, dual statistics, RMP time, and pricing time
+- `vertex_feature`: one record per vertex per pricing iteration with degree, normalized degree, dual value, weighted neighbor dual, complement degree, and column frequency
 
 ---
 

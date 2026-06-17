@@ -2,8 +2,11 @@
 #include "gurobi_c++.h"
 #include <graph/graph.h>
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <limits>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -108,7 +111,8 @@ CPSolveResult solve_decision_pricing_model(
     DecisionPricingModel& model,
     const vector<double>& dual_value,
     double weight_threshold,
-    const vector<int>& static_order
+    const vector<int>& static_order,
+    double time_limit_seconds
 ) {
     CPSolveResult res;
 
@@ -140,6 +144,20 @@ CPSolveResult solve_decision_pricing_model(
     branch(model, ordered_vars, BOOL_VAR_NONE(), BOOL_VAL_MAX());
 
     Search::Options opts;
+    unique_ptr<Search::TimeStop> time_stop;
+    if (time_limit_seconds > 0.0) {
+        unsigned long millis = static_cast<unsigned long>(
+            min(
+                time_limit_seconds * 1000.0,
+                static_cast<double>(numeric_limits<unsigned long>::max())
+            )
+        );
+        time_stop = make_unique<Search::TimeStop>(
+            millis
+        );
+        opts.stop = time_stop.get();
+    }
+
     DFS<DecisionPricingModel> engine(&model, opts);
 
     if (DecisionPricingModel* sol = engine.next()) {

@@ -53,7 +53,8 @@ CPSolveResult solve_decision_pricing_model(
     DecisionPricingModel& model,
     const std::vector<double>& dual_value,
     double weight_threshold,
-    const std::vector<int>& static_order
+    const std::vector<int>& static_order,
+    double time_limit_seconds = 5.0
 );
 
 // 4.2.2 Adaptive Thresholds for the Negative Reduced Cost Constraint

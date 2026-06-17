@@ -1,0 +1,12 @@
+{
+  "instance": "DSJC125.9.col",
+  "seed": 42,
+  "threads": 1,
+  "time_limit_seconds": 3600,
+  "decision_pricing_limit": 5,
+  "exact_pricing_limit": 30,
+  "initial_columns": 429,
+  "vertex_ordering": "dual_desc",
+  "enable_ml": false,
+  "log_vertex_features": true
+}
