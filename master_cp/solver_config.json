@@ -8,5 +8,7 @@
   "initial_columns": 429,
   "vertex_ordering": "dual_desc",
   "enable_ml": false,
-  "log_vertex_features": true
+  "log_vertex_features": true,
+  "schema_version": 1,
+  "log_dir": "master_cp/runs"
 }

@@ -1,0 +1,109 @@
+{
+  "description": "Template for main_master run output. Each execution creates master_cp/runs/<run_id>/.",
+  "run_folder": "master_cp/runs/<run_id>/",
+  "files": {
+    "records_jsonl": {
+      "path": "records.jsonl",
+      "format": "JSON Lines",
+      "record_types": {
+        "run_start": [
+          "record_type",
+          "schema_version",
+          "run_id",
+          "run_output_dir",
+          "instance",
+          "instance_path",
+          "seed",
+          "git_commit",
+          "compiler",
+          "gecode_version",
+          "threads",
+          "time_limit",
+          "decision_pricing_limit",
+          "exact_pricing_limit",
+          "augmented_pricing_limit",
+          "requested_initial_columns",
+          "initial_columns",
+          "vertex_ordering",
+          "enable_ml"
+        ],
+        "pricing_iteration": [
+          "record_type",
+          "schema_version",
+          "run_id",
+          "bp_node_id",
+          "cg_iteration",
+          "pricing_id",
+          "rmp_value",
+          "number_of_columns",
+          "last_reduced_cost",
+          "dual_mean",
+          "dual_variance",
+          "rmp_time",
+          "pricing_time"
+        ]
+      }
+    },
+    "vertex_features_jsonl": {
+      "path": "vertex_features.jsonl",
+      "format": "JSON Lines",
+      "columns": [
+        "iteration",
+        "vertex_id",
+        "degree",
+        "normalized_degree",
+        "dual",
+        "weighted_neighbor_dual",
+        "complement_degree",
+        "stable_set_occurrences"
+      ],
+      "example": {
+        "iteration": 12,
+        "vertex_id": 17,
+        "degree": 108,
+        "normalized_degree": 0.870968,
+        "dual": 0.1971,
+        "weighted_neighbor_dual": 37.22973,
+        "complement_degree": 16,
+        "stable_set_occurrences": 12
+      }
+    },
+    "summary_csv": {
+      "path": "summary.csv",
+      "format": "CSV",
+      "columns": [
+        "run_id",
+        "run_output_dir",
+        "run_log_path",
+        "instance_path",
+        "instance",
+        "n",
+        "m",
+        "num_trials",
+        "seed",
+        "threads",
+        "time_limit_seconds",
+        "run_time_seconds",
+        "iterations",
+        "rmp_status",
+        "lp_objective",
+        "proven_lb",
+        "incumbent_ub",
+        "column_count",
+        "active_lambdas",
+        "total_lambdas",
+        "closed_gap",
+        "converged_by_pricing",
+        "reached_max_iter",
+        "reached_time_limit",
+        "exit_code"
+      ]
+    },
+    "summary_json": {
+      "path": "summary.json",
+      "format": "JSON object",
+      "record_type": "run_summary"
+    }
+  },
+  "copy_hint": "To create another output format, copy src/master_main/output_writer.cpp and output_writer.h, then change the write/log functions."
+}

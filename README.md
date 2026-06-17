@@ -109,11 +109,16 @@ $$y_v \in \{0,1\} \quad \forall v \in V$$
 │   │   ├── heuristic.h
 │   │
 │   ├── column_generation/          # Restricted master problem and pricing
-│   │   ├── driver.h                # Column-generation run configuration
-│   │   ├── driver.cpp              # Main column-generation control flow and reports
 │   │   ├── pricing.h               # MWSS pricing problem
 │   │   ├── rmp.h                   # Restricted Master Problem
 │   │   ├── stable_set.h            # Stable-set column representation
+│   │
+│   ├── master_main/                # main_master configuration, run loop, and output writers
+│   │   ├── config.cpp              # Reads solver_config.json / config.txt
+│   │   ├── driver.cpp              # Column-generation control flow
+│   │   ├── output_writer.cpp       # Per-run output folder and JSONL/summary files
+│   │   ├── pricing_helpers.cpp     # Pricing order, CP decision wrapper, augmented pricing
+│   │   ├── reporting.cpp           # Terminal reports
 │   │
 │   ├── graph/                      # Graph representation and DIMACS parser
 │   │
@@ -230,15 +235,15 @@ Example:
 Runs the full column-generation loop on a single instance: initializes the column pool with random greedy colorings, then alternates between solving the RMP LP and calling the MWSS pricing oracle until convergence.
 
 ```powershell
-.\build\Release\main_master.exe [instance_path] [num_trials] [seed] [mwss_time_limit_sec] [augmented_time_limit_sec] [csv_output]
+.\build\Release\main_master.exe [instance_path] [num_trials] [seed] [mwss_time_limit_sec] [augmented_time_limit_sec]
 ```
 
 If no arguments are passed, `main_master` reads defaults from:
 
 - `master_cp/solver_config.json` for solver/run parameters
-- `master_cp/output.json` for JSONL log directory, CSV summary path, and CSV column order
+- `log_dir` inside `master_cp/solver_config.json` for the output root directory
 
-Legacy `master_cp/config.txt` and `master_cp/output.txt` are still supported as fallback files.
+Legacy `master_cp/config.txt` is still supported as a fallback file.
 
 | Argument                   | Default              | Description                                    |
 | -------------------------- | -------------------- | ---------------------------------------------- |
@@ -247,18 +252,11 @@ Legacy `master_cp/config.txt` and `master_cp/output.txt` are still supported as 
 | `seed`                     | `40`                 | RNG seed for reproducibility                   |
 | `mwss_time_limit_sec`      | `40`                 | MWSS pricing time budget                       |
 | `augmented_time_limit_sec` | `40`                 | Augmented pricing time budget                  |
-| `csv_output`               | From `output.json`   | Result CSV path                                |
 
 Example:
 
 ```powershell
 .\build\Release\main_master.exe tests/myciel4.col 30 42
-```
-
-The optional sixth argument can override the result CSV path:
-
-```powershell
-.\build\Release\main_master.exe tests/myciel4.col 30 42 40 40 results/master.csv
 ```
 
 **Expected output:**
@@ -351,29 +349,24 @@ Each iteration prints:
 
 At convergence, `ceil(LP objective)` is printed as the LP lower bound.
 
-### Column Generation CSV
+### Column Generation Run Folder
 
-`main_master` appends one summary row per run to the path configured in
-`master_cp/output.json`. By default this is:
-
-```
-master_cp/results/master_run_summary.csv
-```
-
-### Column Generation JSONL
-
-Each `main_master` run generates a UUID `run_id` and writes structured JSONL
-records to:
+Each `main_master` run generates a UUID `run_id` and writes all outputs under:
 
 ```
-master_cp/runs/<run_id>.jsonl
+master_cp/runs/<run_id>/
 ```
 
-The log includes:
+The folder contains:
 
-- `run_start`: solver config and metadata such as `run_id`, instance, seed, git commit, compiler, threads, and time limit
-- `pricing_iteration`: one record per CG pricing iteration with RMP value, column count, reduced cost, dual statistics, RMP time, and pricing time
-- `vertex_feature`: one record per vertex per pricing iteration with degree, normalized degree, dual value, weighted neighbor dual, complement degree, and column frequency
+- `records.jsonl`: structured JSONL records for `run_start` and `pricing_iteration`
+- `vertex_features.jsonl`: one vertex-feature JSON object per vertex per CG iteration
+- `summary.csv`: one-row CSV summary for this run
+- `summary.json`: JSON summary for this run
+
+`master_cp/output_schema_template.json` documents the output shape. Copy
+`src/master_main/output_writer.cpp` / `.h` if you want to create another output
+writer later.
 
 ---
 

@@ -29,7 +29,12 @@ set(MASTER_SOURCES
     src/column_generation/stable_set.cpp
     src/column_generation/rmp.cpp
     src/column_generation/pricing.cpp
-    src/column_generation/driver.cpp
+    src/master_main/config.cpp
+    src/master_main/driver.cpp
+    src/master_main/output_writer.cpp
+    src/master_main/pricing_helpers.cpp
+    src/master_main/reporting.cpp
+    src/master_main/util.cpp
     src/augmented_pricing/augmented_pricing.cpp
 )
 
