@@ -1,6 +1,6 @@
 {
-  "description": "Template for main_master run output. Each execution creates master_cp/runs/<run_id>/.",
-  "run_folder": "master_cp/runs/<run_id>/",
+  "description": "Template for main_master run output. Each execution creates master_cp/runs/<instance>/<run_id>/.",
+  "run_folder": "master_cp/runs/<instance>/<run_id>/",
   "files": {
     "records_jsonl": {
       "path": "records.jsonl",

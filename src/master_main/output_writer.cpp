@@ -10,6 +10,28 @@
 using namespace std;
 namespace fs = std::filesystem;
 
+namespace {
+
+string safe_instance_folder_name(const MasterRunSummary& summary) {
+    string name = fs::path(summary.instance).stem().string();
+    if (name.empty()) {
+        name = "unknown_instance";
+    }
+
+    for (char& ch : name) {
+        unsigned char uch = static_cast<unsigned char>(ch);
+        if (uch < 32 || ch == '<' || ch == '>' || ch == ':'
+            || ch == '"' || ch == '/' || ch == '\\' || ch == '|'
+            || ch == '?' || ch == '*') {
+            ch = '_';
+        }
+    }
+
+    return name.empty() ? "unknown_instance" : name;
+}
+
+} // namespace
+
 bool JsonlLogger::open(
     const MasterRunConfig& config,
     MasterRunSummary& summary
@@ -18,7 +40,8 @@ bool JsonlLogger::open(
         return false;
     }
 
-    fs::path run_dir = fs::path(config.log_dir) / summary.run_id;
+    fs::path run_dir =
+        fs::path(config.log_dir) / safe_instance_folder_name(summary) / summary.run_id;
     fs::create_directories(run_dir);
 
     summary.run_output_dir = run_dir.string();

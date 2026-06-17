@@ -354,7 +354,7 @@ At convergence, `ceil(LP objective)` is printed as the LP lower bound.
 Each `main_master` run generates a UUID `run_id` and writes all outputs under:
 
 ```
-master_cp/runs/<run_id>/
+master_cp/runs/<instance>/<run_id>/
 ```
 
 The folder contains:
