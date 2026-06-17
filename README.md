@@ -176,7 +176,7 @@ Two executables are produced:
 | Executable    | Solver | Purpose                                   |
 | ------------- | ------ | ----------------------------------------- |
 | `main`        | Gecode | CP benchmark across all `.col` instances  |
-| `main_master` | Gurobi | Column generation LP on a single instance |
+| `main_master` | Gurobi | Column generation LP on one instance or all `.col` files in a directory |
 
 **VS Code (recommended):**
 
@@ -232,13 +232,16 @@ Example:
 
 ### 6.2 Column Generation (`main_master`)
 
-Runs the full column-generation loop on a single instance: initializes the column pool with random greedy colorings, then alternates between solving the RMP LP and calling the MWSS pricing oracle until convergence.
+Runs the full column-generation loop: initializes the column pool with random greedy colorings, then alternates between solving the RMP LP and calling the MWSS pricing oracle until convergence.
 
 ```powershell
 .\build\Release\main_master.exe [instance_path] [num_trials] [seed] [mwss_time_limit_sec] [augmented_time_limit_sec]
 ```
 
-If no arguments are passed, `main_master` reads defaults from:
+If no arguments are passed, `main_master` reads solver defaults from the config
+files below, then automatically runs every `.col` instance in `tests/`.
+If the first argument is a directory, it runs every `.col` instance in that
+directory. If the first argument is a file, it runs only that instance.
 
 - `master_cp/solver_config.json` for solver/run parameters
 - `log_dir` inside `master_cp/solver_config.json` for the output root directory
@@ -257,6 +260,18 @@ Example:
 
 ```powershell
 .\build\Release\main_master.exe tests/myciel4.col 30 42
+```
+
+Run all default test instances:
+
+```powershell
+.\build\Release\main_master.exe
+```
+
+Run all instances in a chosen directory:
+
+```powershell
+.\build\Release\main_master.exe tests
 ```
 
 **Expected output:**
