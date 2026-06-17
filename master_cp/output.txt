@@ -1,0 +1,6 @@
+# Output structure for main_master.exe.
+# result_path is relative to the repository root when this file stays in master_cp/.
+
+result_path = master_cp/results/master_results.csv
+append = true
+columns = instance_path,instance,n,m,num_trials,seed,iterations,rmp_status,lp_objective,proven_lb,incumbent_ub,column_count,active_lambdas,total_lambdas,closed_gap,converged_by_pricing,reached_max_iter,exit_code

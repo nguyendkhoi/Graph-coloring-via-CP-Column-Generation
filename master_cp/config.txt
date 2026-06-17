@@ -1,0 +1,9 @@
+# Default configuration for main_master.exe.
+# Command-line arguments still override these values.
+
+instance_path = tests/queen5_5.col
+num_trials = 20
+seed = 40
+max_iter = 100000
+mwss_time_limit_seconds = 40
+augmented_time_limit_seconds = 40

@@ -230,19 +230,33 @@ Example:
 Runs the full column-generation loop on a single instance: initializes the column pool with random greedy colorings, then alternates between solving the RMP LP and calling the MWSS pricing oracle until convergence.
 
 ```powershell
-.\build\Release\main_master.exe [instance_path] [num_trials] [seed]
+.\build\Release\main_master.exe [instance_path] [num_trials] [seed] [mwss_time_limit_sec] [augmented_time_limit_sec] [csv_output]
 ```
 
-| Argument        | Default              | Description                                    |
-| --------------- | -------------------- | ---------------------------------------------- |
-| `instance_path` | `tests/queen5_5.col` | Path to `.col` instance                        |
-| `num_trials`    | `20`                 | Random greedy trials for column initialization |
-| `seed`          | `40`                 | RNG seed for reproducibility                   |
+If no arguments are passed, `main_master` reads defaults from:
+
+- `master_cp/config.txt` for run parameters
+- `master_cp/output.txt` for the CSV result path and column order
+
+| Argument                   | Default              | Description                                    |
+| -------------------------- | -------------------- | ---------------------------------------------- |
+| `instance_path`            | `tests/queen5_5.col` | Path to `.col` instance                        |
+| `num_trials`               | `20`                 | Random greedy trials for column initialization |
+| `seed`                     | `40`                 | RNG seed for reproducibility                   |
+| `mwss_time_limit_sec`      | `40`                 | MWSS pricing time budget                       |
+| `augmented_time_limit_sec` | `40`                 | Augmented pricing time budget                  |
+| `csv_output`               | From `output.txt`    | Result CSV path                                |
 
 Example:
 
 ```powershell
 .\build\Release\main_master.exe tests/myciel4.col 30 42
+```
+
+The optional sixth argument can override the result CSV path:
+
+```powershell
+.\build\Release\main_master.exe tests/myciel4.col 30 42 40 40 results/master.csv
 ```
 
 **Expected output:**
@@ -334,6 +348,15 @@ Each iteration prints:
 - `cols`: total columns in RMP
 
 At convergence, `ceil(LP objective)` is printed as the LP lower bound.
+
+### Column Generation CSV
+
+`main_master` appends one summary row per run to the path configured in
+`master_cp/output.txt`. By default this is:
+
+```
+master_cp/results/master_results.csv
+```
 
 ---
 

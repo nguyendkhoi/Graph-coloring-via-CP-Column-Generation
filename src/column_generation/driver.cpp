@@ -10,12 +10,16 @@
 #include "gurobi_c++.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <numeric>
 #include <random>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -23,6 +27,216 @@ using namespace std;
 namespace fs = std::filesystem;
 
 namespace {
+
+struct MasterRunSummary {
+    string instance_path;
+    string instance;
+    int n = 0;
+    long long m = 0;
+    int num_trials = 0;
+    size_t seed = 0;
+    int iterations = 0;
+    string rmp_status = "NOT_RUN";
+    double lp_objective = 0.0;
+    int proven_lb = 0;
+    int incumbent_ub = 0;
+    int column_count = 0;
+    int active_lambdas = 0;
+    int total_lambdas = 0;
+    bool closed_gap = false;
+    bool converged_by_pricing = false;
+    bool reached_max_iter = false;
+    int exit_code = 0;
+};
+
+string trim(const string& value) {
+    size_t first = 0;
+    while (first < value.size()
+        && isspace(static_cast<unsigned char>(value[first]))) {
+        ++first;
+    }
+
+    size_t last = value.size();
+    while (last > first
+        && isspace(static_cast<unsigned char>(value[last - 1]))) {
+        --last;
+    }
+
+    return value.substr(first, last - first);
+}
+
+map<string, string> read_key_value_file(const fs::path& path) {
+    map<string, string> values;
+    ifstream input(path);
+    if (!input) {
+        return values;
+    }
+
+    string line;
+    while (getline(input, line)) {
+        size_t comment = line.find('#');
+        if (comment != string::npos) {
+            line = line.substr(0, comment);
+        }
+
+        line = trim(line);
+        if (line.empty()) {
+            continue;
+        }
+
+        size_t separator = line.find('=');
+        if (separator == string::npos) {
+            continue;
+        }
+
+        string key = trim(line.substr(0, separator));
+        string value = trim(line.substr(separator + 1));
+        if (!key.empty()) {
+            values[key] = value;
+        }
+    }
+
+    return values;
+}
+
+vector<string> split_csv_list(const string& value) {
+    vector<string> items;
+    string item;
+    stringstream ss(value);
+    while (getline(ss, item, ',')) {
+        item = trim(item);
+        if (!item.empty()) {
+            items.push_back(item);
+        }
+    }
+    return items;
+}
+
+bool parse_bool(const string& value) {
+    string lowered;
+    lowered.reserve(value.size());
+    for (char ch : value) {
+        lowered.push_back(static_cast<char>(
+            tolower(static_cast<unsigned char>(ch))
+        ));
+    }
+    return lowered == "1" || lowered == "true"
+        || lowered == "yes" || lowered == "on";
+}
+
+fs::path config_root_from_file(const fs::path& path) {
+    fs::path parent = path.parent_path();
+    if (parent.filename() == "master_cp") {
+        return parent.parent_path();
+    }
+    return parent;
+}
+
+string resolve_config_path(const fs::path& root, const string& value) {
+    fs::path path(value);
+    if (path.is_relative()) {
+        path = root / path;
+    }
+    return path.lexically_normal().string();
+}
+
+vector<fs::path> parent_chain(fs::path start) {
+    vector<fs::path> paths;
+    if (start.empty()) {
+        return paths;
+    }
+
+    start = fs::absolute(start).lexically_normal();
+    for (int depth = 0; depth < 6 && !start.empty(); ++depth) {
+        paths.push_back(start);
+        fs::path parent = start.parent_path();
+        if (parent == start) {
+            break;
+        }
+        start = parent;
+    }
+    return paths;
+}
+
+fs::path find_default_file(const string& argv0, const fs::path& relative_path) {
+    vector<fs::path> bases = parent_chain(fs::current_path());
+
+    if (!argv0.empty()) {
+        fs::path exe_path(argv0);
+        if (exe_path.has_parent_path()) {
+            vector<fs::path> exe_bases = parent_chain(exe_path.parent_path());
+            bases.insert(bases.end(), exe_bases.begin(), exe_bases.end());
+        }
+    }
+
+    for (const fs::path& base : bases) {
+        fs::path candidate = (base / relative_path).lexically_normal();
+        if (fs::exists(candidate)) {
+            return candidate;
+        }
+    }
+
+    return {};
+}
+
+void apply_run_config_file(
+    MasterRunConfig& config,
+    const fs::path& path
+) {
+    map<string, string> values = read_key_value_file(path);
+    if (values.empty()) {
+        return;
+    }
+
+    fs::path root = config_root_from_file(path);
+
+    if (values.count("instance_path")) {
+        config.instance_path =
+            resolve_config_path(root, values["instance_path"]);
+    }
+    if (values.count("num_trials")) {
+        config.num_trials = stoi(values["num_trials"]);
+    }
+    if (values.count("seed")) {
+        config.seed = static_cast<size_t>(stoull(values["seed"]));
+    }
+    if (values.count("max_iter")) {
+        config.max_iter = stoi(values["max_iter"]);
+    }
+    if (values.count("mwss_time_limit_seconds")) {
+        config.mwss_time_limit_seconds =
+            stod(values["mwss_time_limit_seconds"]);
+    }
+    if (values.count("augmented_time_limit_seconds")) {
+        config.augmented_time_limit_seconds =
+            stod(values["augmented_time_limit_seconds"]);
+    }
+}
+
+void apply_output_config_file(
+    MasterRunConfig& config,
+    const fs::path& path
+) {
+    map<string, string> values = read_key_value_file(path);
+    if (values.empty()) {
+        return;
+    }
+
+    fs::path root = config_root_from_file(path);
+
+    if (values.count("result_path")) {
+        config.output_path = resolve_config_path(root, values["result_path"]);
+    } else if (values.count("output_path")) {
+        config.output_path = resolve_config_path(root, values["output_path"]);
+    }
+
+    if (values.count("append")) {
+        config.append_output = parse_bool(values["append"]);
+    }
+    if (values.count("columns")) {
+        config.output_columns = split_csv_list(values["columns"]);
+    }
+}
 
 long long count_edges(const Graph& G) {
     long long degree_sum = 0;
@@ -129,6 +343,133 @@ int count_active_lambdas(const RMPSolution& sol) {
     return active;
 }
 
+string format_double(double value) {
+    ostringstream out;
+    out << fixed << setprecision(6) << value;
+    return out.str();
+}
+
+string csv_escape(const string& value) {
+    bool needs_quotes = value.find_first_of(",\"\n\r") != string::npos;
+    if (!needs_quotes) {
+        return value;
+    }
+
+    string escaped = "\"";
+    for (char ch : value) {
+        if (ch == '"') {
+            escaped += "\"\"";
+        } else {
+            escaped += ch;
+        }
+    }
+    escaped += "\"";
+    return escaped;
+}
+
+vector<string> default_output_columns() {
+    return {
+        "instance_path",
+        "instance",
+        "n",
+        "m",
+        "num_trials",
+        "seed",
+        "iterations",
+        "rmp_status",
+        "lp_objective",
+        "proven_lb",
+        "incumbent_ub",
+        "column_count",
+        "active_lambdas",
+        "total_lambdas",
+        "closed_gap",
+        "converged_by_pricing",
+        "reached_max_iter",
+        "exit_code"
+    };
+}
+
+map<string, string> summary_values(const MasterRunSummary& summary) {
+    return {
+        {"instance_path", summary.instance_path},
+        {"instance", summary.instance},
+        {"n", to_string(summary.n)},
+        {"m", to_string(summary.m)},
+        {"num_trials", to_string(summary.num_trials)},
+        {"seed", to_string(summary.seed)},
+        {"iterations", to_string(summary.iterations)},
+        {"rmp_status", summary.rmp_status},
+        {"lp_objective", format_double(summary.lp_objective)},
+        {"proven_lb", to_string(summary.proven_lb)},
+        {"incumbent_ub", to_string(summary.incumbent_ub)},
+        {"column_count", to_string(summary.column_count)},
+        {"active_lambdas", to_string(summary.active_lambdas)},
+        {"total_lambdas", to_string(summary.total_lambdas)},
+        {"closed_gap", summary.closed_gap ? "1" : "0"},
+        {"converged_by_pricing", summary.converged_by_pricing ? "1" : "0"},
+        {"reached_max_iter", summary.reached_max_iter ? "1" : "0"},
+        {"exit_code", to_string(summary.exit_code)}
+    };
+}
+
+void write_master_output(
+    const MasterRunConfig& config,
+    const MasterRunSummary& summary
+) {
+    if (config.output_path.empty()) {
+        return;
+    }
+
+    vector<string> columns = config.output_columns.empty()
+        ? default_output_columns()
+        : config.output_columns;
+
+    fs::path output_path(config.output_path);
+    if (output_path.has_parent_path()) {
+        fs::create_directories(output_path.parent_path());
+    }
+
+    bool write_header = !config.append_output
+        || !fs::exists(output_path)
+        || fs::file_size(output_path) == 0;
+
+    ios::openmode mode = ios::out;
+    if (config.append_output) {
+        mode |= ios::app;
+    } else {
+        mode |= ios::trunc;
+    }
+
+    ofstream output(output_path, mode);
+    if (!output) {
+        cerr << "Cannot open output file: " << config.output_path << endl;
+        return;
+    }
+
+    if (write_header) {
+        for (size_t i = 0; i < columns.size(); ++i) {
+            if (i > 0) {
+                output << ",";
+            }
+            output << csv_escape(columns[i]);
+        }
+        output << "\n";
+    }
+
+    map<string, string> values = summary_values(summary);
+    for (size_t i = 0; i < columns.size(); ++i) {
+        if (i > 0) {
+            output << ",";
+        }
+        auto it = values.find(columns[i]);
+        output << csv_escape(it == values.end() ? "" : it->second);
+    }
+    output << "\n";
+
+    cout << "Summary exported -> " << config.output_path << endl;
+}
+
 void print_final_report(
     int iterations,
     const RMPSolution& sol,
@@ -224,6 +565,23 @@ bool solve_decision_pricing_column(
 MasterRunConfig parse_master_args(int argc, char** argv) {
     MasterRunConfig config;
 
+    string argv0 = argc >= 1 ? argv[0] : "";
+    fs::path default_config = find_default_file(
+        argv0,
+        fs::path("master_cp") / "config.txt"
+    );
+    if (!default_config.empty()) {
+        apply_run_config_file(config, default_config);
+    }
+
+    fs::path default_output = find_default_file(
+        argv0,
+        fs::path("master_cp") / "output.txt"
+    );
+    if (!default_output.empty()) {
+        apply_output_config_file(config, default_output);
+    }
+
     if (argc >= 2) {
         config.instance_path = argv[1];
     }
@@ -239,18 +597,32 @@ MasterRunConfig parse_master_args(int argc, char** argv) {
     if (argc >= 6) {
         config.augmented_time_limit_seconds = stod(argv[5]);
     }
+    if (argc >= 7) {
+        config.output_path = argv[6];
+    }
 
     return config;
 }
 
 int run_column_generation(const MasterRunConfig& config) {
+    MasterRunSummary summary;
+    summary.instance_path = config.instance_path;
+    summary.instance = fs::path(config.instance_path).filename().string();
+    summary.num_trials = config.num_trials;
+    summary.seed = config.seed;
+
     if (!fs::exists(config.instance_path)) {
         cerr << "Instance not found: " << config.instance_path << endl;
+        summary.rmp_status = "INSTANCE_NOT_FOUND";
+        summary.exit_code = 1;
+        write_master_output(config, summary);
         return 1;
     }
 
     // 1. Initialize Problem (Graph)
     Graph G = parser_dimacs_col(config.instance_path, true);
+    summary.n = G.num_vertices();
+    summary.m = count_edges(G);
 
     // 2. Build initial columns and initial upper bound kbar
     ColumnPool pool;
@@ -342,6 +714,9 @@ int run_column_generation(const MasterRunConfig& config) {
     };
 
     if (!solve_current_rmp()) {
+        summary.rmp_status = gurobi_status_name(sol.status);
+        summary.exit_code = 2;
+        write_master_output(config, summary);
         return 2;
     }
 
@@ -474,6 +849,13 @@ int run_column_generation(const MasterRunConfig& config) {
 
         // Solve new RMP
         if (!solve_current_rmp()) {
+            summary.iterations = cg_iter;
+            summary.rmp_status = gurobi_status_name(sol.status);
+            summary.proven_lb = proven_lb;
+            summary.incumbent_ub = incumbent_ub;
+            summary.column_count = rmp.column_count();
+            summary.exit_code = 2;
+            write_master_output(config, summary);
             return 2;
         }
     }
@@ -487,6 +869,20 @@ int run_column_generation(const MasterRunConfig& config) {
         closed_gap,
         converged_by_pricing
     );
+
+    summary.iterations = cg_iter;
+    summary.rmp_status = gurobi_status_name(sol.status);
+    summary.lp_objective = sol.objective;
+    summary.proven_lb = proven_lb;
+    summary.incumbent_ub = incumbent_ub;
+    summary.column_count = rmp.column_count();
+    summary.active_lambdas = count_active_lambdas(sol);
+    summary.total_lambdas = static_cast<int>(sol.lambda_value.size());
+    summary.closed_gap = closed_gap;
+    summary.converged_by_pricing = converged_by_pricing;
+    summary.reached_max_iter = reached_max_iter;
+    summary.exit_code = 0;
+    write_master_output(config, summary);
 
     return 0;
 }
