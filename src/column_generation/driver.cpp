@@ -1253,6 +1253,7 @@ int run_column_generation(const MasterRunConfig& config) {
     bool converged_by_pricing = false;
     bool closed_gap = false;
     bool reached_max_iter = false;
+    bool use_augmented_pricing = true;
 
     RMPSolution sol;
     StableSetPricingResult pricing_result;
@@ -1498,10 +1499,10 @@ int run_column_generation(const MasterRunConfig& config) {
             pool
         );
         
-        // Run augmented pricing after found a new column
+        // Run augmented pricing until the first failed attempt.
         vector<StableColumn> augmented_columns;
 
-        if( try_improve_upper_bound_with_augmented_pricing(
+        if (use_augmented_pricing && try_improve_upper_bound_with_augmented_pricing(
             G,
             pricing_result.column,
             config.augmented_time_limit_seconds,
@@ -1534,6 +1535,11 @@ int run_column_generation(const MasterRunConfig& config) {
                 break;
             }
         } else {
+            if (use_augmented_pricing) {
+                use_augmented_pricing = false;
+                cout << "Disable augmented pricing after first failed attempt."
+                     << endl;
+            }
             if (!add_pricing_column(step)) {
                 break;
             }
