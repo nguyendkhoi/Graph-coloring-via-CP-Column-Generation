@@ -101,6 +101,9 @@ $$y_v \in \{0,1\} \quad \forall v \in V$$
 .
 .
 ├── src/
+│   ├── config/                     # Dynamic JSON config reader
+│   │   ├── config.h
+│   │
 │   ├── augmented_pricing/          # Augmented pricing model and search
 │   │   ├── augmented_pricing.h
 │   │

@@ -3,6 +3,7 @@
 #include "pricing.h"
 #include "rmp.h"
 #include "stable_set.h"
+#include "../config/config.h"
 #include "../augmented_pricing/augmented_pricing.h"
 #include "../graph/graph.h"
 #include "../preprocessing/clique_processing.h"
@@ -18,7 +19,6 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
-#include <map>
 #include <numeric>
 #include <random>
 #include <sstream>
@@ -71,141 +71,6 @@ string trim(const string& value) {
     }
 
     return value.substr(first, last - first);
-}
-
-string read_text_file(const fs::path& path) {
-    ifstream input(path);
-    if (!input) {
-        return "";
-    }
-
-    ostringstream buffer;
-    buffer << input.rdbuf();
-    return buffer.str();
-}
-
-string parse_json_string_token(const string& text, size_t& pos) {
-    string value;
-    if (pos >= text.size() || text[pos] != '"') {
-        return value;
-    }
-
-    ++pos;
-    while (pos < text.size()) {
-        char ch = text[pos++];
-        if (ch == '"') {
-            break;
-        }
-        if (ch == '\\' && pos < text.size()) {
-            char escaped = text[pos++];
-            switch (escaped) {
-                case '"': value.push_back('"'); break;
-                case '\\': value.push_back('\\'); break;
-                case '/': value.push_back('/'); break;
-                case 'b': value.push_back('\b'); break;
-                case 'f': value.push_back('\f'); break;
-                case 'n': value.push_back('\n'); break;
-                case 'r': value.push_back('\r'); break;
-                case 't': value.push_back('\t'); break;
-                default: value.push_back(escaped); break;
-            }
-        } else {
-            value.push_back(ch);
-        }
-    }
-
-    return value;
-}
-
-map<string, string> read_flat_json_file(const fs::path& path) {
-    map<string, string> values;
-    string text = read_text_file(path);
-    if (text.empty()) {
-        return values;
-    }
-
-    size_t pos = 0;
-    auto skip_ws = [&]() {
-        while (pos < text.size()
-            && isspace(static_cast<unsigned char>(text[pos]))) {
-            ++pos;
-        }
-    };
-
-    skip_ws();
-    if (pos >= text.size() || text[pos] != '{') {
-        return values;
-    }
-    ++pos;
-
-    while (pos < text.size()) {
-        skip_ws();
-        if (pos < text.size() && text[pos] == '}') {
-            break;
-        }
-        if (pos >= text.size() || text[pos] != '"') {
-            break;
-        }
-
-        string key = parse_json_string_token(text, pos);
-        skip_ws();
-        if (pos >= text.size() || text[pos] != ':') {
-            break;
-        }
-        ++pos;
-        skip_ws();
-
-        string value;
-        if (pos < text.size() && text[pos] == '"') {
-            value = parse_json_string_token(text, pos);
-        } else {
-            size_t start = pos;
-            while (pos < text.size() && text[pos] != ',' && text[pos] != '}') {
-                ++pos;
-            }
-            value = trim(text.substr(start, pos - start));
-        }
-
-        if (!key.empty()) {
-            values[key] = value;
-        }
-
-        skip_ws();
-        if (pos < text.size() && text[pos] == ',') {
-            ++pos;
-        }
-    }
-
-    return values;
-}
-
-map<string, string> read_config_object_file(const fs::path& path) {
-    return read_flat_json_file(path);
-}
-
-vector<string> split_csv_list(const string& value) {
-    vector<string> items;
-    string item;
-    stringstream ss(value);
-    while (getline(ss, item, ',')) {
-        item = trim(item);
-        if (!item.empty()) {
-            items.push_back(item);
-        }
-    }
-    return items;
-}
-
-bool parse_bool(const string& value) {
-    string lowered;
-    lowered.reserve(value.size());
-    for (char ch : value) {
-        lowered.push_back(static_cast<char>(
-            tolower(static_cast<unsigned char>(ch))
-        ));
-    }
-    return lowered == "1" || lowered == "true"
-        || lowered == "yes" || lowered == "on";
 }
 
 fs::path config_root_from_file(const fs::path& path) {
@@ -265,76 +130,76 @@ void apply_run_config_file(
     MasterRunConfig& config,
     const fs::path& path
 ) {
-    map<string, string> values = read_config_object_file(path);
-    if (values.empty()) {
-        return;
-    }
-
+    Config settings = Config::from_json_file(path);
     fs::path root = config_root_from_file(path);
 
-    if (values.count("instance")) {
-        config.instance_path = resolve_instance_path(root, values["instance"]);
+    if (settings.contains("instance")) {
+        config.instance_path = resolve_instance_path(
+            root,
+            settings.get<string>("instance", config.instance_path)
+        );
     }
-    if (values.count("num_trials")) {
-        config.num_trials = stoi(values["num_trials"]);
+    if (settings.contains("num_trials")) {
+        config.num_trials = settings.get<int>("num_trials", config.num_trials);
     }
-    if (values.count("initial_columns")) {
-        config.initial_columns_target = stoi(values["initial_columns"]);
+    if (settings.contains("initial_columns")) {
+        config.initial_columns_target =
+            settings.get<int>("initial_columns", config.initial_columns_target);
     }
-    if (values.count("seed")) {
-        config.seed = static_cast<size_t>(stoull(values["seed"]));
+    if (settings.contains("seed")) {
+        config.seed = settings.get<size_t>("seed", config.seed);
     }
-    if (values.count("max_iter")) {
-        config.max_iter = stoi(values["max_iter"]);
+    if (settings.contains("max_iter")) {
+        config.max_iter = settings.get<int>("max_iter", config.max_iter);
     }
-    if (values.count("threads")) {
-        config.threads = stoi(values["threads"]);
+    if (settings.contains("threads")) {
+        config.threads = settings.get<int>("threads", config.threads);
     }
-    if (values.count("time_limit_seconds")) {
-        config.time_limit_seconds = stod(values["time_limit_seconds"]);
+    if (settings.contains("time_limit_seconds")) {
+        config.time_limit_seconds =
+            settings.get<double>("time_limit_seconds", config.time_limit_seconds);
     }
-    if (values.count("decision_pricing_limit")) {
+    if (settings.contains("decision_pricing_limit")) {
         config.decision_pricing_limit_seconds =
-            stod(values["decision_pricing_limit"]);
+            settings.get<double>(
+                "decision_pricing_limit",
+                config.decision_pricing_limit_seconds
+            );
     }
-    if (values.count("exact_pricing_limit")) {
-        config.mwss_time_limit_seconds = stod(values["exact_pricing_limit"]);
+    if (settings.contains("exact_pricing_limit")) {
+        config.mwss_time_limit_seconds =
+            settings.get<double>(
+                "exact_pricing_limit",
+                config.mwss_time_limit_seconds
+            );
     }
-    if (values.count("augmented_time_limit_seconds")) {
+    if (settings.contains("augmented_time_limit_seconds")) {
         config.augmented_time_limit_seconds =
-            stod(values["augmented_time_limit_seconds"]);
+            settings.get<double>(
+                "augmented_time_limit_seconds",
+                config.augmented_time_limit_seconds
+            );
     }
-    if (values.count("vertex_ordering")) {
-        config.vertex_ordering = values["vertex_ordering"];
+    if (settings.contains("vertex_ordering")) {
+        config.vertex_ordering =
+            settings.get<string>("vertex_ordering", config.vertex_ordering);
     }
-    if (values.count("enable_ml")) {
-        config.enable_ml = parse_bool(values["enable_ml"]);
+    if (settings.contains("enable_ml")) {
+        config.enable_ml = settings.get<bool>("enable_ml", config.enable_ml);
     }
-    if (values.count("log_vertex_features")) {
-        config.log_vertex_features = parse_bool(values["log_vertex_features"]);
+    if (settings.contains("log_vertex_features")) {
+        config.log_vertex_features =
+            settings.get<bool>("log_vertex_features", config.log_vertex_features);
     }
-    if (values.count("result_path")) {
-        config.output_path = resolve_config_path(root, values["result_path"]);
-    } else if (values.count("output_path")) {
-        config.output_path = resolve_config_path(root, values["output_path"]);
+    if (settings.contains("log_dir")) {
+        config.log_dir = resolve_config_path(
+            root,
+            settings.get<string>("log_dir", config.log_dir)
+        );
     }
-
-    if (values.count("append")) {
-        config.append_output = parse_bool(values["append"]);
-    } else if (values.count("append_summary")) {
-        config.append_output = parse_bool(values["append_summary"]);
-    }
-    if (values.count("columns")) {
-        config.output_columns = split_csv_list(values["columns"]);
-    }
-    if (values.count("summary_path")) {
-        config.output_path = resolve_config_path(root, values["summary_path"]);
-    }
-    if (values.count("log_dir")) {
-        config.log_dir = resolve_config_path(root, values["log_dir"]);
-    }
-    if (values.count("schema_version")) {
-        config.schema_version = stoi(values["schema_version"]);
+    if (settings.contains("schema_version")) {
+        config.schema_version =
+            settings.get<int>("schema_version", config.schema_version);
     }
 }
 
@@ -657,121 +522,6 @@ struct JsonlLogger {
         }
     }
 };
-
-vector<string> default_output_columns() {
-    return {
-        "run_id",
-        "run_log_path",
-        "instance_path",
-        "instance",
-        "n",
-        "m",
-        "num_trials",
-        "seed",
-        "threads",
-        "time_limit_seconds",
-        "run_time_seconds",
-        "iterations",
-        "rmp_status",
-        "lp_objective",
-        "proven_lb",
-        "incumbent_ub",
-        "column_count",
-        "active_lambdas",
-        "total_lambdas",
-        "closed_gap",
-        "converged_by_pricing",
-        "reached_max_iter",
-        "reached_time_limit",
-        "exit_code"
-    };
-}
-
-map<string, string> summary_values(const MasterRunSummary& summary) {
-    return {
-        {"run_id", summary.run_id},
-        {"run_log_path", summary.run_log_path},
-        {"instance_path", summary.instance_path},
-        {"instance", summary.instance},
-        {"n", to_string(summary.n)},
-        {"m", to_string(summary.m)},
-        {"num_trials", to_string(summary.num_trials)},
-        {"seed", to_string(summary.seed)},
-        {"threads", to_string(summary.threads)},
-        {"time_limit_seconds", format_double(summary.time_limit_seconds)},
-        {"run_time_seconds", format_double(summary.run_time_seconds)},
-        {"iterations", to_string(summary.iterations)},
-        {"rmp_status", summary.rmp_status},
-        {"lp_objective", format_double(summary.lp_objective)},
-        {"proven_lb", to_string(summary.proven_lb)},
-        {"incumbent_ub", to_string(summary.incumbent_ub)},
-        {"column_count", to_string(summary.column_count)},
-        {"active_lambdas", to_string(summary.active_lambdas)},
-        {"total_lambdas", to_string(summary.total_lambdas)},
-        {"closed_gap", summary.closed_gap ? "1" : "0"},
-        {"converged_by_pricing", summary.converged_by_pricing ? "1" : "0"},
-        {"reached_max_iter", summary.reached_max_iter ? "1" : "0"},
-        {"reached_time_limit", summary.reached_time_limit ? "1" : "0"},
-        {"exit_code", to_string(summary.exit_code)}
-    };
-}
-
-void write_master_output(
-    const MasterRunConfig& config,
-    const MasterRunSummary& summary
-) {
-    if (config.output_path.empty()) {
-        return;
-    }
-
-    vector<string> columns = config.output_columns.empty()
-        ? default_output_columns()
-        : config.output_columns;
-
-    fs::path output_path(config.output_path);
-    if (output_path.has_parent_path()) {
-        fs::create_directories(output_path.parent_path());
-    }
-
-    bool write_header = !config.append_output
-        || !fs::exists(output_path)
-        || fs::file_size(output_path) == 0;
-
-    ios::openmode mode = ios::out;
-    if (config.append_output) {
-        mode |= ios::app;
-    } else {
-        mode |= ios::trunc;
-    }
-
-    ofstream output(output_path, mode);
-    if (!output) {
-        cerr << "Cannot open output file: " << config.output_path << endl;
-        return;
-    }
-
-    if (write_header) {
-        for (size_t i = 0; i < columns.size(); ++i) {
-            if (i > 0) {
-                output << ",";
-            }
-            output << csv_escape(columns[i]);
-        }
-        output << "\n";
-    }
-
-    map<string, string> values = summary_values(summary);
-    for (size_t i = 0; i < columns.size(); ++i) {
-        if (i > 0) {
-            output << ",";
-        }
-        auto it = values.find(columns[i]);
-        output << csv_escape(it == values.end() ? "" : it->second);
-    }
-    output << "\n";
-
-    cout << "Summary exported -> " << config.output_path << endl;
-}
 
 pair<double, double> mean_and_variance(const vector<double>& values) {
     if (values.empty()) {
