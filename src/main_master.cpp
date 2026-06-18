@@ -1,4 +1,4 @@
-#include "column_generation/driver.h"
+#include "master_main/driver.h"
 
 #include "gurobi_c++.h"
 
@@ -6,6 +6,7 @@
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <string>
 #include <vector>
 
 using namespace std;
@@ -29,7 +30,7 @@ vector<fs::path> collect_col_instances(const fs::path& instance_dir) {
     return instances;
 }
 
-int run_all_instances(MasterRunConfig base_config, const fs::path& instance_dir) {
+int run_all_instances(const fs::path& instance_dir) {
     vector<fs::path> instances = collect_col_instances(instance_dir);
     if (instances.empty()) {
         cerr << "No .col instances found in: " << instance_dir << endl;
@@ -47,10 +48,7 @@ int run_all_instances(MasterRunConfig base_config, const fs::path& instance_dir)
              << ": " << instances[i].filename().string() << endl;
         cout << "============================================" << endl;
 
-        MasterRunConfig instance_config = base_config;
-        instance_config.instance_path = instances[i].string();
-
-        int code = run_column_generation(instance_config);
+        int code = run_column_generation(instances[i].string());
         if (code != 0) {
             ++failed_runs;
             last_error_code = code;
@@ -70,12 +68,13 @@ int run_all_instances(MasterRunConfig base_config, const fs::path& instance_dir)
 
 int main() {
     try {
-        MasterRunConfig config = parse_master_args();
-        if (fs::exists(config.instance_path)
-            && fs::is_directory(config.instance_path)) {
-            return run_all_instances(config, config.instance_path);
+        load_master_config();
+        string instance_path = configured_instance_path();
+        if (fs::exists(instance_path)
+            && fs::is_directory(instance_path)) {
+            return run_all_instances(instance_path);
         }
-        return run_column_generation(config);
+        return run_column_generation(instance_path);
     } catch (const GRBException& e) {
         cerr << "Gurobi Error "
              << e.getErrorCode() << ": "

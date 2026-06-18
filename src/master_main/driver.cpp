@@ -5,6 +5,7 @@
 #include "reporting.h"
 #include "util.h"
 
+#include "../config/config.h"
 #include "../column_generation/pricing.h"
 #include "../column_generation/rmp.h"
 #include "../column_generation/stable_set.h"
@@ -18,13 +19,40 @@
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 using namespace std;
 namespace fs = std::filesystem;
 
-int run_column_generation(const MasterRunConfig& config) {
+namespace {
+
+fs::path master_config_path() {
+    return fs::path("master_cp") / "solver_config.json";
+}
+
+} // namespace
+
+void load_master_config() {
+    fs::path config_path = master_config_path();
+    if (!fs::exists(config_path)) {
+        throw runtime_error("Missing config file: " + config_path.string());
+    }
+
+    load_config_json(config_path);
+}
+
+string configured_instance_path() {
+    fs::path config_path = master_config_path();
+    fs::path root = config_root_from_file(config_path);
+    return resolve_instance_path(
+        root,
+        config.get<string>("instance", "tests/queen5_5.col")
+    );
+}
+
+int run_column_generation(const string& instance_path) {
     auto run_start_time = chrono::high_resolution_clock::now();
     auto elapsed_run_seconds = [&]() -> double {
         return chrono::duration<double>(
@@ -34,32 +62,33 @@ int run_column_generation(const MasterRunConfig& config) {
 
     MasterRunSummary summary;
     summary.run_id = generate_uuid();
-    summary.instance_path = config.instance_path;
-    summary.instance = fs::path(config.instance_path).filename().string();
-    summary.num_trials = config.num_trials;
-    summary.seed = config.seed;
-    summary.threads = config.threads;
-    summary.time_limit_seconds = config.time_limit_seconds;
+    summary.instance_path = instance_path;
+    summary.instance = fs::path(instance_path).filename().string();
+    summary.num_trials = config.get<int>("num_trials", 20);
+    summary.seed = config.get<size_t>("seed", 40);
+    summary.threads = config.get<int>("threads", 1);
+    summary.time_limit_seconds =
+        config.get<double>("time_limit_seconds", 3600.0);
 
     JsonlLogger logger;
-    logger.open(config, summary);
+    logger.open(summary);
 
-    if (!fs::exists(config.instance_path)) {
-        cerr << "Instance not found: " << config.instance_path << endl;
+    if (!fs::exists(instance_path)) {
+        cerr << "Instance not found: " << instance_path << endl;
         summary.rmp_status = "INSTANCE_NOT_FOUND";
         summary.run_time_seconds = elapsed_run_seconds();
         summary.exit_code = 1;
-        write_run_summary(config, summary);
+        write_run_summary(summary);
         return 1;
     }
 
-    Graph G = parser_dimacs_col(config.instance_path, true);
+    Graph G = parser_dimacs_col(instance_path, true);
     summary.n = G.num_vertices();
     summary.m = count_edges(G);
 
     ColumnPool pool;
-    pool.initialize(G, config.num_trials, config.seed);
-    grow_initial_column_pool_to_target(pool, G, config);
+    pool.initialize(G, summary.num_trials, summary.seed);
+    grow_initial_column_pool_to_target(pool, G);
 
     vector<vector<int>> clique_info = generate_clique(G, 20);
     int proven_lb = clique_info.empty() ? (G.num_vertices() > 0 ? 1 : 0)
@@ -67,13 +96,13 @@ int run_column_generation(const MasterRunConfig& config) {
     double adaptive_lower_bound = static_cast<double>(proven_lb);
     int incumbent_ub = static_cast<int>(dsatur_coloring_columns(G).size());
 
-    print_run_header(config, G, pool, proven_lb, incumbent_ub);
-    log_run_start(logger, config, summary, pool.size());
+    print_run_header(instance_path, G, pool, proven_lb, incumbent_ub);
+    log_run_start(logger, summary, pool.size());
 
     GRBEnv env(true);
     env.set(GRB_IntParam_OutputFlag, 0);
-    if (config.threads > 0) {
-        env.set(GRB_IntParam_Threads, config.threads);
+    if (summary.threads > 0) {
+        env.set(GRB_IntParam_Threads, summary.threads);
     }
     env.start();
 
@@ -107,7 +136,7 @@ int run_column_generation(const MasterRunConfig& config) {
     };
 
     auto stop_if_iteration_limit_reached = [&]() -> bool {
-        if (cg_iter < config.max_iter) {
+        if (cg_iter < config.get<int>("max_iter", 100000)) {
             return false;
         }
 
@@ -166,7 +195,7 @@ int run_column_generation(const MasterRunConfig& config) {
         summary.reached_max_iter = reached_max_iter;
         summary.run_time_seconds = elapsed_run_seconds();
         summary.exit_code = code;
-        write_run_summary(config, summary);
+        write_run_summary(summary);
         return code;
     };
 
@@ -175,8 +204,8 @@ int run_column_generation(const MasterRunConfig& config) {
     }
 
     while (!closed_gap && !reached_max_iter) {
-        if (config.time_limit_seconds > 0.0
-            && elapsed_run_seconds() >= config.time_limit_seconds) {
+        if (summary.time_limit_seconds > 0.0
+            && elapsed_run_seconds() >= summary.time_limit_seconds) {
             cerr << "Reached global time limit." << endl;
             summary.reached_time_limit = true;
             break;
@@ -188,7 +217,7 @@ int run_column_generation(const MasterRunConfig& config) {
                 adaptive_lower_bound
             );
         vector<int> static_order =
-            build_pricing_order(G, sol.dual_value, config, cg_iter);
+            build_pricing_order(G, sol.dual_value, cg_iter);
 
         string pricing_id = summary.run_id
             + "-node0-cg" + to_string(cg_iter);
@@ -200,7 +229,7 @@ int run_column_generation(const MasterRunConfig& config) {
             decision_threshold,
             static_order,
             pricing_result,
-            config.decision_pricing_limit_seconds
+            config.get<double>("decision_pricing_limit", 5.0)
         );
 
         string step = "Decision pricing";
@@ -218,7 +247,7 @@ int run_column_generation(const MasterRunConfig& config) {
                 G,
                 sol.dual_value,
                 pricing_result,
-                config.mwss_time_limit_seconds
+                config.get<double>("exact_pricing_limit", 40.0)
             );
 
             step = "MWSS";
@@ -235,7 +264,6 @@ int run_column_generation(const MasterRunConfig& config) {
                 ).count();
                 log_pricing_iteration(
                     logger,
-                    config,
                     summary.run_id,
                     cg_iter,
                     pricing_id,
@@ -247,7 +275,6 @@ int run_column_generation(const MasterRunConfig& config) {
                 );
                 log_vertex_features(
                     logger,
-                    config,
                     cg_iter,
                     G,
                     sol.dual_value,
@@ -293,7 +320,6 @@ int run_column_generation(const MasterRunConfig& config) {
                     ).count();
                     log_pricing_iteration(
                         logger,
-                        config,
                         summary.run_id,
                         cg_iter,
                         pricing_id,
@@ -305,7 +331,6 @@ int run_column_generation(const MasterRunConfig& config) {
                     );
                     log_vertex_features(
                         logger,
-                        config,
                         cg_iter,
                         G,
                         sol.dual_value,
@@ -322,7 +347,6 @@ int run_column_generation(const MasterRunConfig& config) {
         ).count();
         log_pricing_iteration(
             logger,
-            config,
             summary.run_id,
             cg_iter,
             pricing_id,
@@ -334,7 +358,6 @@ int run_column_generation(const MasterRunConfig& config) {
         );
         log_vertex_features(
             logger,
-            config,
             cg_iter,
             G,
             sol.dual_value,
@@ -346,7 +369,7 @@ int run_column_generation(const MasterRunConfig& config) {
         if (use_augmented_pricing && try_improve_upper_bound_with_augmented_pricing(
             G,
             pricing_result.column,
-            config.augmented_time_limit_seconds,
+            config.get<double>("augmented_time_limit_seconds", 40.0),
             incumbent_ub,
             augmented_columns
         )) {

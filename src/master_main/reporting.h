@@ -8,7 +8,7 @@
 #include <string>
 
 void print_run_header(
-    const MasterRunConfig& config,
+    const std::string& instance_path,
     const Graph& G,
     const ColumnPool& pool,
     int proven_lb,

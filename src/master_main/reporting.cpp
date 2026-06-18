@@ -1,5 +1,6 @@
 #include "reporting.h"
 
+#include "../config/config.h"
 #include "util.h"
 
 #include <iomanip>
@@ -8,7 +9,7 @@
 using namespace std;
 
 void print_run_header(
-    const MasterRunConfig& config,
+    const string& instance_path,
     const Graph& G,
     const ColumnPool& pool,
     int proven_lb,
@@ -16,15 +17,20 @@ void print_run_header(
 ) {
     cout << "============================================" << endl;
     cout << " Column Generation with Augmented Pricing" << endl;
-    cout << " Instance : " << config.instance_path << endl;
+    cout << " Instance : " << instance_path << endl;
     cout << " |V|      : " << G.num_vertices() << endl;
     cout << " |E|      : " << count_edges(G) << endl;
-    cout << " Trials   : " << config.num_trials << endl;
-    cout << " Threads  : " << config.threads << endl;
-    cout << " Run TL   : " << config.time_limit_seconds << " s" << endl;
-    cout << " DP TL    : " << config.decision_pricing_limit_seconds << " s" << endl;
-    cout << " MWSS TL  : " << config.mwss_time_limit_seconds << " s" << endl;
-    cout << " AP TL    : " << config.augmented_time_limit_seconds << " s" << endl;
+    cout << " Trials   : " << config.get<int>("num_trials", 20) << endl;
+    cout << " Threads  : " << config.get<int>("threads", 1) << endl;
+    cout << " Run TL   : "
+         << config.get<double>("time_limit_seconds", 3600.0) << " s" << endl;
+    cout << " DP TL    : "
+         << config.get<double>("decision_pricing_limit", 5.0) << " s" << endl;
+    cout << " MWSS TL  : "
+         << config.get<double>("exact_pricing_limit", 40.0) << " s" << endl;
+    cout << " AP TL    : "
+         << config.get<double>("augmented_time_limit_seconds", 40.0)
+         << " s" << endl;
     cout << " Init cols: " << pool.size() << endl;
     cout << " Init LB  : " << proven_lb << endl;
     cout << " Init UB  : " << incumbent_ub << endl;

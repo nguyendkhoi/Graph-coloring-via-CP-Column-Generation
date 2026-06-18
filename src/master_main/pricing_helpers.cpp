@@ -1,6 +1,7 @@
 #include "pricing_helpers.h"
 
 #include "../augmented_pricing/augmented_pricing.h"
+#include "../config/config.h"
 
 #include <algorithm>
 #include <cmath>
@@ -49,14 +50,15 @@ vector<int> weighted_shuffled_static_order(
 vector<int> build_pricing_order(
     const Graph& G,
     const vector<double>& dual_value,
-    const MasterRunConfig& config,
     int iteration
 ) {
     int n = G.num_vertices();
     vector<int> order(n);
     iota(order.begin(), order.end(), 0);
 
-    if (config.vertex_ordering == "dual_desc") {
+    string vertex_ordering = config.get<string>("vertex_ordering", "dual_desc");
+
+    if (vertex_ordering == "dual_desc") {
         stable_sort(order.begin(), order.end(),
             [&](int a, int b) {
                 double da = a < static_cast<int>(dual_value.size())
@@ -74,7 +76,7 @@ vector<int> build_pricing_order(
         return order;
     }
 
-    if (config.vertex_ordering == "degree_desc") {
+    if (vertex_ordering == "degree_desc") {
         stable_sort(order.begin(), order.end(),
             [&](int a, int b) {
                 if (G.degree(a) != G.degree(b)) {
@@ -86,37 +88,42 @@ vector<int> build_pricing_order(
         return order;
     }
 
-    return weighted_shuffled_static_order(G, dual_value, config.seed, iteration);
+    return weighted_shuffled_static_order(
+        G,
+        dual_value,
+        config.get<size_t>("seed", 40),
+        iteration
+    );
 }
 
 void grow_initial_column_pool_to_target(
     ColumnPool& pool,
-    const Graph& G,
-    const MasterRunConfig& config
+    const Graph& G
 ) {
-    if (config.initial_columns_target <= 0
-        || pool.size() >= config.initial_columns_target) {
+    int initial_columns_target = config.get<int>("initial_columns", 0);
+    if (initial_columns_target <= 0 || pool.size() >= initial_columns_target) {
         return;
     }
 
     int attempts = 0;
     int max_attempts = max(
-        config.initial_columns_target * 20,
-        config.initial_columns_target + 100
+        initial_columns_target * 20,
+        initial_columns_target + 100
     );
 
-    while (pool.size() < config.initial_columns_target
+    size_t seed = config.get<size_t>("seed", 40);
+    while (pool.size() < initial_columns_target
         && attempts < max_attempts) {
         pool.initialize(
             G,
             1,
-            config.seed + static_cast<size_t>(1000003 + attempts)
+            seed + static_cast<size_t>(1000003 + attempts)
         );
         ++attempts;
     }
 
-    if (pool.size() < config.initial_columns_target) {
-        cerr << "Warning: requested " << config.initial_columns_target
+    if (pool.size() < initial_columns_target) {
+        cerr << "Warning: requested " << initial_columns_target
              << " initial columns but generated " << pool.size()
              << " unique columns." << endl;
     }

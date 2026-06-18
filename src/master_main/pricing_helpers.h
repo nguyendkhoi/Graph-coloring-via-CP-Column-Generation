@@ -10,14 +10,12 @@
 std::vector<int> build_pricing_order(
     const Graph& G,
     const std::vector<double>& dual_value,
-    const MasterRunConfig& config,
     int iteration
 );
 
 void grow_initial_column_pool_to_target(
     ColumnPool& pool,
-    const Graph& G,
-    const MasterRunConfig& config
+    const Graph& G
 );
 
 bool try_improve_upper_bound_with_augmented_pricing(

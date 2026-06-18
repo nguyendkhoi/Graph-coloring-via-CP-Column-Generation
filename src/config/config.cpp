@@ -72,9 +72,11 @@ string parse_json_string_token(const string& text, size_t& pos) {
 
 } // namespace
 
-Config Config::from_json_file(const fs::path& path) {
+Config config;
+
+void load_config_json(const fs::path& path) {
     string text = read_text_file(path);
-    Config config;
+    config.clear();
 
     size_t pos = 0;
     auto skip_ws = [&]() {
@@ -125,6 +127,4 @@ Config Config::from_json_file(const fs::path& path) {
             ++pos;
         }
     }
-
-    return config;
 }

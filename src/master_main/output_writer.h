@@ -15,21 +15,19 @@ struct JsonlLogger {
     std::string path;
     std::string vertex_path;
 
-    bool open(const MasterRunConfig& config, MasterRunSummary& summary);
+    bool open(MasterRunSummary& summary);
     void write(const std::string& record);
     void write_vertex(const std::string& record);
 };
 
 void log_run_start(
     JsonlLogger& logger,
-    const MasterRunConfig& config,
     const MasterRunSummary& summary,
     int initial_columns
 );
 
 void log_pricing_iteration(
     JsonlLogger& logger,
-    const MasterRunConfig& config,
     const std::string& run_id,
     int cg_iter,
     const std::string& pricing_id,
@@ -42,7 +40,6 @@ void log_pricing_iteration(
 
 void log_vertex_features(
     JsonlLogger& logger,
-    const MasterRunConfig& config,
     int cg_iter,
     const Graph& G,
     const std::vector<double>& dual_value,
@@ -50,7 +47,4 @@ void log_vertex_features(
     const StableColumn& selected_column
 );
 
-void write_run_summary(
-    const MasterRunConfig& config,
-    const MasterRunSummary& summary
-);
+void write_run_summary(const MasterRunSummary& summary);

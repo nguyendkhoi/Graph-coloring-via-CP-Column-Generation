@@ -241,7 +241,7 @@ Runs the full column-generation loop: initializes the column pool with random gr
 .\build\Release\main_master.exe
 ```
 
-`main_master` reads all run settings from `master_cp/solver_config.json`.
+`main_master` reads all run parameters from `master_cp/solver_config.json`.
 If `instance` points to a directory, it runs every `.col` instance in that
 directory. If `instance` points to a file, it runs only that instance.
 

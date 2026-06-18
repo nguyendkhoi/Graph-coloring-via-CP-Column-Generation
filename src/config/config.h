@@ -9,23 +9,25 @@
 
 class Config {
 private:
-    std::map<std::string, std::string> settings;
+    std::map<std::string, std::string> values;
 
 public:
-    static Config from_json_file(const std::filesystem::path& path);
-
     void set(const std::string& key, const std::string& value) {
-        settings[key] = value;
+        values[key] = value;
+    }
+
+    void clear() {
+        values.clear();
     }
 
     bool contains(const std::string& key) const {
-        return settings.find(key) != settings.end();
+        return values.find(key) != values.end();
     }
 
     template <typename T>
     T get(const std::string& key, T default_value) const {
-        auto it = settings.find(key);
-        if (it == settings.end()) {
+        auto it = values.find(key);
+        if (it == values.end()) {
             return default_value;
         }
 
@@ -58,3 +60,7 @@ public:
         }
     }
 };
+
+extern Config config;
+
+void load_config_json(const std::filesystem::path& path);

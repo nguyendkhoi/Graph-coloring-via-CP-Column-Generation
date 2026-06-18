@@ -1,5 +1,6 @@
 #include "output_writer.h"
 
+#include "../config/config.h"
 #include "util.h"
 
 #include <filesystem>
@@ -11,6 +12,21 @@ using namespace std;
 namespace fs = std::filesystem;
 
 namespace {
+
+fs::path master_config_path() {
+    return fs::path("master_cp") / "solver_config.json";
+}
+
+fs::path master_config_root() {
+    return config_root_from_file(master_config_path());
+}
+
+string configured_log_dir() {
+    return resolve_config_path(
+        master_config_root(),
+        config.get<string>("log_dir", "master_cp/runs")
+    );
+}
 
 // Output folder naming
 string safe_instance_folder_name(const MasterRunSummary& summary) {
@@ -34,16 +50,14 @@ string safe_instance_folder_name(const MasterRunSummary& summary) {
 } // namespace
 
 // Run folder setup and raw stream helpers
-bool JsonlLogger::open(
-    const MasterRunConfig& config,
-    MasterRunSummary& summary
-) {
-    if (config.log_dir.empty()) {
+bool JsonlLogger::open(MasterRunSummary& summary) {
+    string log_dir = configured_log_dir();
+    if (log_dir.empty()) {
         return false;
     }
 
     fs::path run_dir =
-        fs::path(config.log_dir) / safe_instance_folder_name(summary) / summary.run_id;
+        fs::path(log_dir) / safe_instance_folder_name(summary) / summary.run_id;
     fs::create_directories(run_dir);
 
     summary.run_output_dir = run_dir.string();
@@ -219,7 +233,6 @@ void write_summary_csv(const MasterRunSummary& summary) {
 }
 
 void write_summary_json(
-    const MasterRunConfig& config,
     const MasterRunSummary& summary
 ) {
     if (summary.summary_json_path.empty()) {
@@ -233,7 +246,8 @@ void write_summary_json(
 
     output << "{\n"
            << "  \"record_type\": \"run_summary\",\n"
-           << "  \"schema_version\": " << config.schema_version << ",\n"
+           << "  \"schema_version\": "
+           << config.get<int>("schema_version", 1) << ",\n"
            << "  \"run_id\": " << json_string(summary.run_id) << ",\n"
            << "  \"run_output_dir\": " << json_string(summary.run_output_dir) << ",\n"
            << "  \"records_path\": " << json_string(summary.run_log_path) << ",\n"
@@ -266,19 +280,16 @@ void write_summary_json(
 // Records and feature output
 void log_run_start(
     JsonlLogger& logger,
-    const MasterRunConfig& config,
     const MasterRunSummary& summary,
     int initial_columns
 ) {
     (void)logger;
-    (void)config;
     (void)summary;
     (void)initial_columns;
 }
 
 void log_pricing_iteration(
     JsonlLogger& logger,
-    const MasterRunConfig& config,
     const string& run_id,
     int cg_iter,
     const string& pricing_id,
@@ -290,7 +301,6 @@ void log_pricing_iteration(
 ) {
     auto [dual_mean, dual_variance] = mean_and_variance(sol.dual_value);
 
-    (void)config;
     (void)run_id;
     (void)pricing_id;
 
@@ -308,14 +318,13 @@ void log_pricing_iteration(
 
 void log_vertex_features(
     JsonlLogger& logger,
-    const MasterRunConfig& config,
     int cg_iter,
     const Graph& G,
     const vector<double>& dual_value,
     const ColumnPool& pool,
     const StableColumn& selected_column
 ) {
-    if (!config.log_vertex_features) {
+    if (!config.get<bool>("log_vertex_features", true)) {
         return;
     }
 
@@ -345,12 +354,9 @@ void log_vertex_features(
     }
 }
 
-void write_run_summary(
-    const MasterRunConfig& config,
-    const MasterRunSummary& summary
-) {
+void write_run_summary(const MasterRunSummary& summary) {
     write_summary_csv(summary);
-    write_summary_json(config, summary);
+    write_summary_json(summary);
     if (!summary.run_output_dir.empty()) {
         cout << "Run output -> " << summary.run_output_dir << endl;
     }
