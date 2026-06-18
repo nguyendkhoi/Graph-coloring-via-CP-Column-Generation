@@ -96,10 +96,13 @@ vector<int> build_pricing_order(
     );
 }
 
-void grow_initial_column_pool_to_target(
+void initialize_column_pool(
     ColumnPool& pool,
     const Graph& G
 ) {
+    size_t seed = config.get<size_t>("seed", 40);
+    pool.initialize(G, config.get<int>("num_trials", 20), seed);
+
     int initial_columns_target = config.get<int>("initial_columns", 0);
     if (initial_columns_target <= 0 || pool.size() >= initial_columns_target) {
         return;
@@ -111,7 +114,6 @@ void grow_initial_column_pool_to_target(
         initial_columns_target + 100
     );
 
-    size_t seed = config.get<size_t>("seed", 40);
     while (pool.size() < initial_columns_target
         && attempts < max_attempts) {
         pool.initialize(

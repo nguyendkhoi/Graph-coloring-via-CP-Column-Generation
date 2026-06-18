@@ -13,7 +13,7 @@ std::vector<int> build_pricing_order(
     int iteration
 );
 
-void grow_initial_column_pool_to_target(
+void initialize_column_pool(
     ColumnPool& pool,
     const Graph& G
 );

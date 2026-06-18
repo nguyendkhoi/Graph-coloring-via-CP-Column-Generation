@@ -60,6 +60,7 @@ int run_column_generation(const string& instance_path) {
         ).count();
     };
 
+    // Summary JSON format
     MasterRunSummary summary;
     summary.run_id = generate_uuid();
     summary.instance_path = instance_path;
@@ -82,13 +83,13 @@ int run_column_generation(const string& instance_path) {
         return 1;
     }
 
+    // Initialize Graph
     Graph G = parser_dimacs_col(instance_path, true);
     summary.n = G.num_vertices();
     summary.m = count_edges(G);
 
     ColumnPool pool;
-    pool.initialize(G, summary.num_trials, summary.seed);
-    grow_initial_column_pool_to_target(pool, G);
+    initialize_column_pool(pool, G);
 
     vector<vector<int>> clique_info = generate_clique(G, 20);
     int proven_lb = clique_info.empty() ? (G.num_vertices() > 0 ? 1 : 0)
