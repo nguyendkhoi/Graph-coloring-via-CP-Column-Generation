@@ -51,6 +51,6 @@ struct MasterRunSummary {
     int exit_code = 0;
 };
 
-MasterRunConfig parse_master_args(int argc, char** argv);
+MasterRunConfig parse_master_args();
 
 int run_column_generation(const MasterRunConfig& config);

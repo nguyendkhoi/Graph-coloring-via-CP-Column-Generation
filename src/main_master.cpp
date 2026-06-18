@@ -1,5 +1,4 @@
 #include "column_generation/driver.h"
-#include "master_main/util.h"
 
 #include "gurobi_c++.h"
 
@@ -28,14 +27,6 @@ vector<fs::path> collect_col_instances(const fs::path& instance_dir) {
 
     sort(instances.begin(), instances.end());
     return instances;
-}
-
-fs::path default_tests_dir(const string& argv0) {
-    fs::path tests_dir = find_default_file(argv0, "tests");
-    if (!tests_dir.empty()) {
-        return tests_dir;
-    }
-    return fs::path("tests");
 }
 
 int run_all_instances(MasterRunConfig base_config, const fs::path& instance_dir) {
@@ -77,12 +68,9 @@ int run_all_instances(MasterRunConfig base_config, const fs::path& instance_dir)
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main() {
     try {
-        MasterRunConfig config = parse_master_args(argc, argv);
-        if (argc < 2) {
-            return run_all_instances(config, default_tests_dir(argv[0]));
-        }
+        MasterRunConfig config = parse_master_args();
         if (fs::exists(config.instance_path)
             && fs::is_directory(config.instance_path)) {
             return run_all_instances(config, config.instance_path);

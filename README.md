@@ -235,41 +235,45 @@ Example:
 Runs the full column-generation loop: initializes the column pool with random greedy colorings, then alternates between solving the RMP LP and calling the MWSS pricing oracle until convergence.
 
 ```powershell
-.\build\Release\main_master.exe [instance_path] [num_trials] [seed] [mwss_time_limit_sec] [augmented_time_limit_sec]
+.\build\Release\main_master.exe
 ```
 
-If no arguments are passed, `main_master` reads solver defaults from
-`master_cp/solver_config.json`, then automatically runs every `.col` instance in `tests/`.
-If the first argument is a directory, it runs every `.col` instance in that
-directory. If the first argument is a file, it runs only that instance.
+`main_master` reads all run settings from `master_cp/solver_config.json`.
+If `instance` points to a directory, it runs every `.col` instance in that
+directory. If `instance` points to a file, it runs only that instance.
 
 - `master_cp/solver_config.json` for solver/run parameters
 - `log_dir` inside `master_cp/solver_config.json` for the output root directory
 
-| Argument                   | Default              | Description                                    |
-| -------------------------- | -------------------- | ---------------------------------------------- |
-| `instance_path`            | `tests/queen5_5.col` | Path to `.col` instance                        |
-| `num_trials`               | `20`                 | Random greedy trials for column initialization |
-| `seed`                     | `40`                 | RNG seed for reproducibility                   |
-| `mwss_time_limit_sec`      | `40`                 | MWSS pricing time budget                       |
-| `augmented_time_limit_sec` | `40`                 | Augmented pricing time budget                  |
+| Config key                       | Description                                    |
+| -------------------------------- | ---------------------------------------------- |
+| `instance`                       | `.col` instance path or directory              |
+| `num_trials`                    | Random greedy trials for column initialization |
+| `seed`                          | RNG seed for reproducibility                   |
+| `decision_pricing_limit`        | CP decision pricing time budget                |
+| `exact_pricing_limit`           | MWSS pricing time budget                       |
+| `augmented_time_limit_seconds`  | Augmented pricing time budget                  |
 
 Example:
-
-```powershell
-.\build\Release\main_master.exe tests/myciel4.col 30 42
-```
-
-Run all default test instances:
 
 ```powershell
 .\build\Release\main_master.exe
 ```
 
-Run all instances in a chosen directory:
+Run one instance by setting `instance` in `master_cp/solver_config.json`:
 
-```powershell
-.\build\Release\main_master.exe tests
+```json
+{
+  "instance": "tests/myciel4.col"
+}
+```
+
+Run all instances in a directory:
+
+```json
+{
+  "instance": "tests"
+}
 ```
 
 **Expected output:**

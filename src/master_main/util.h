@@ -25,10 +25,6 @@ std::string resolve_instance_path(
     const std::string& value
 );
 std::vector<std::filesystem::path> parent_chain(std::filesystem::path start);
-std::filesystem::path find_default_file(
-    const std::string& argv0,
-    const std::filesystem::path& relative_path
-);
 
 long long count_edges(const Graph& G);
 int ceil_bound(double value);

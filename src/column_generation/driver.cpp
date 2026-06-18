@@ -261,27 +261,6 @@ vector<fs::path> parent_chain(fs::path start) {
     return paths;
 }
 
-fs::path find_default_file(const string& argv0, const fs::path& relative_path) {
-    vector<fs::path> bases = parent_chain(fs::current_path());
-
-    if (!argv0.empty()) {
-        fs::path exe_path(argv0);
-        if (exe_path.has_parent_path()) {
-            vector<fs::path> exe_bases = parent_chain(exe_path.parent_path());
-            bases.insert(bases.end(), exe_bases.begin(), exe_bases.end());
-        }
-    }
-
-    for (const fs::path& base : bases) {
-        fs::path candidate = (base / relative_path).lexically_normal();
-        if (fs::exists(candidate)) {
-            return candidate;
-        }
-    }
-
-    return {};
-}
-
 void apply_run_config_file(
     MasterRunConfig& config,
     const fs::path& path
@@ -334,19 +313,6 @@ void apply_run_config_file(
     if (values.count("log_vertex_features")) {
         config.log_vertex_features = parse_bool(values["log_vertex_features"]);
     }
-}
-
-void apply_output_config_file(
-    MasterRunConfig& config,
-    const fs::path& path
-) {
-    map<string, string> values = read_config_object_file(path);
-    if (values.empty()) {
-        return;
-    }
-
-    fs::path root = config_root_from_file(path);
-
     if (values.count("result_path")) {
         config.output_path = resolve_config_path(root, values["result_path"]);
     } else if (values.count("output_path")) {
@@ -1086,45 +1052,13 @@ bool solve_decision_pricing_column(
 
 } // namespace
 
-MasterRunConfig parse_master_args(int argc, char** argv) {
+MasterRunConfig parse_master_args() {
     MasterRunConfig config;
-
-    string argv0 = argc >= 1 ? argv[0] : "";
-    fs::path default_config = find_default_file(
-        argv0,
-        fs::path("master_cp") / "solver_config.json"
-    );
-    if (!default_config.empty()) {
-        apply_run_config_file(config, default_config);
+    fs::path config_path = fs::path("master_cp") / "solver_config.json";
+    if (!fs::exists(config_path)) {
+        throw runtime_error("Missing config file: " + config_path.string());
     }
-
-    fs::path default_output = find_default_file(
-        argv0,
-        fs::path("master_cp") / "output.json"
-    );
-    if (!default_output.empty()) {
-        apply_output_config_file(config, default_output);
-    }
-
-    if (argc >= 2) {
-        config.instance_path = argv[1];
-    }
-    if (argc >= 3) {
-        config.num_trials = stoi(argv[2]);
-        config.initial_columns_target = 0;
-    }
-    if (argc >= 4) {
-        config.seed = static_cast<size_t>(stoull(argv[3]));
-    }
-    if (argc >= 5) {
-        config.mwss_time_limit_seconds = stod(argv[4]);
-    }
-    if (argc >= 6) {
-        config.augmented_time_limit_seconds = stod(argv[5]);
-    }
-    if (argc >= 7) {
-        config.output_path = argv[6];
-    }
+    apply_run_config_file(config, config_path);
 
     return config;
 }

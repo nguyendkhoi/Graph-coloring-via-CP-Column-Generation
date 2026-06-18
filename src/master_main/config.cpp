@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <map>
+#include <stdexcept>
 #include <string>
 
 using namespace std;
@@ -73,34 +74,13 @@ void apply_run_config_file(
 
 } // namespace
 
-MasterRunConfig parse_master_args(int argc, char** argv) {
+MasterRunConfig parse_master_args() {
     MasterRunConfig config;
-
-    string argv0 = argc >= 1 ? argv[0] : "";
-    fs::path default_config = find_default_file(
-        argv0,
-        fs::path("master_cp") / "solver_config.json"
-    );
-    if (!default_config.empty()) {
-        apply_run_config_file(config, default_config);
+    fs::path config_path = fs::path("master_cp") / "solver_config.json";
+    if (!fs::exists(config_path)) {
+        throw runtime_error("Missing config file: " + config_path.string());
     }
-
-    if (argc >= 2) {
-        config.instance_path = argv[1];
-    }
-    if (argc >= 3) {
-        config.num_trials = stoi(argv[2]);
-        config.initial_columns_target = 0;
-    }
-    if (argc >= 4) {
-        config.seed = static_cast<size_t>(stoull(argv[3]));
-    }
-    if (argc >= 5) {
-        config.mwss_time_limit_seconds = stod(argv[4]);
-    }
-    if (argc >= 6) {
-        config.augmented_time_limit_seconds = stod(argv[5]);
-    }
+    apply_run_config_file(config, config_path);
 
     return config;
 }

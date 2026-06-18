@@ -219,27 +219,6 @@ vector<fs::path> parent_chain(fs::path start) {
     return paths;
 }
 
-fs::path find_default_file(const string& argv0, const fs::path& relative_path) {
-    vector<fs::path> bases = parent_chain(fs::current_path());
-
-    if (!argv0.empty()) {
-        fs::path exe_path(argv0);
-        if (exe_path.has_parent_path()) {
-            vector<fs::path> exe_bases = parent_chain(exe_path.parent_path());
-            bases.insert(bases.end(), exe_bases.begin(), exe_bases.end());
-        }
-    }
-
-    for (const fs::path& base : bases) {
-        fs::path candidate = (base / relative_path).lexically_normal();
-        if (fs::exists(candidate)) {
-            return candidate;
-        }
-    }
-
-    return {};
-}
-
 long long count_edges(const Graph& G) {
     long long degree_sum = 0;
     for (int v = 0; v < G.num_vertices(); ++v) {
