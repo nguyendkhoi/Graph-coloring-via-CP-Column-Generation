@@ -161,7 +161,11 @@ static BenchRow run_one(const string& path, double time_limit) {
     r.m = static_cast<int>(deg_sum / 2);
 
     auto cp_t0 = chrono::high_resolution_clock::now();
-    vector<vector<int>> clique_info = generate_clique(G, 30);
+    vector<int> clique = find_maximal_clique_from_complement(G.complement());
+    vector<vector<int>> clique_info;
+    if (!clique.empty()) {
+        clique_info.push_back(clique);
+    }
     auto cp_t1 = chrono::high_resolution_clock::now();
     double clique_time = chrono::duration<double>(cp_t1 - cp_t0).count();
     r.cp_time = clique_time;

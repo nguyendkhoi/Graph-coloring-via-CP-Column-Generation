@@ -91,6 +91,7 @@ int run_column_generation(const string& instance_path) {
     ColumnPool pool;
     initialize_column_pool(pool, G);
 
+    
     vector<vector<int>> clique_info = generate_clique(G, 20);
     int proven_lb = clique_info.empty() ? (G.num_vertices() > 0 ? 1 : 0)
                                         : static_cast<int>(clique_info[0].size());

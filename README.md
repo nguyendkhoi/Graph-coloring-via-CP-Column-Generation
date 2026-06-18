@@ -141,7 +141,7 @@ $$y_v \in \{0,1\} \quad \forall v \in V$$
 | `greedy_coloring`          | Largest-degree-first greedy upper bound                      |
 | `DSATUR_coloring`          | Brelaz saturation-degree heuristic                           |
 | `random_sequential_greedy` | Random-order greedy (used to seed column pool)               |
-| `generate_clique`          | Multiple cliques via complement-graph DSATUR + random greedy |
+| `find_maximal_clique_from_complement` | One maximal clique via DSATUR on the complement graph |
 | `ColoringCP`               | Gecode CP model with clique AllDifferent + symmetry          |
 | `run_cp_upper_bound`       | Benchmark-side iterative CP improvement from DSATUR bound downward |
 | `StableColumn`             | Stable set column: vertex list + uint64 bitset               |
@@ -392,7 +392,7 @@ writer later.
 
 ## 9. Implementation Notes
 
-**Clique finding** (`generate_clique`): a stable set in the complement graph $\bar{G}$ is a clique in $G$. The function runs DSATUR on $\bar{G}$ to find an initial large clique, then runs randomized greedy colorings on $\bar{G}$ for `number_cliques - 1` additional cliques. All cliques are sorted by size descending. The largest clique is used for CP symmetry breaking; all cliques become `AllDifferent` constraints.
+**Clique finding** (`find_maximal_clique_from_complement`): a stable set in the complement graph $\bar{G}$ is a clique in $G$. The function runs DSATUR on $\bar{G}$ once, takes the largest color class as a stable set, then maximalizes it in $\bar{G}$. The resulting clique is used as the initial lower bound.
 
 **Stable set maximalization** (`maximalize_stable_set`): after extracting color classes from a greedy coloring, each class is extended greedily by scanning vertices not adjacent to any current member. This produces larger columns and a better-quality initial pool, reducing the number of CG iterations needed.
 
