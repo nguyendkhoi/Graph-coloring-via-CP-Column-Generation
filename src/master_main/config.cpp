@@ -24,8 +24,6 @@ void apply_run_config_file(
 
     if (values.count("instance")) {
         config.instance_path = resolve_instance_path(root, values["instance"]);
-    } else if (values.count("instance_path")) {
-        config.instance_path = resolve_instance_path(root, values["instance_path"]);
     }
     if (values.count("num_trials")) {
         config.num_trials = stoi(values["num_trials"]);
@@ -48,16 +46,9 @@ void apply_run_config_file(
     if (values.count("decision_pricing_limit")) {
         config.decision_pricing_limit_seconds =
             stod(values["decision_pricing_limit"]);
-    } else if (values.count("decision_pricing_limit_seconds")) {
-        config.decision_pricing_limit_seconds =
-            stod(values["decision_pricing_limit_seconds"]);
     }
     if (values.count("exact_pricing_limit")) {
         config.mwss_time_limit_seconds = stod(values["exact_pricing_limit"]);
-    }
-    if (values.count("mwss_time_limit_seconds")) {
-        config.mwss_time_limit_seconds =
-            stod(values["mwss_time_limit_seconds"]);
     }
     if (values.count("augmented_time_limit_seconds")) {
         config.augmented_time_limit_seconds =
@@ -90,12 +81,6 @@ MasterRunConfig parse_master_args(int argc, char** argv) {
         argv0,
         fs::path("master_cp") / "solver_config.json"
     );
-    if (default_config.empty()) {
-        default_config = find_default_file(
-            argv0,
-            fs::path("master_cp") / "config.txt"
-        );
-    }
     if (!default_config.empty()) {
         apply_run_config_file(config, default_config);
     }

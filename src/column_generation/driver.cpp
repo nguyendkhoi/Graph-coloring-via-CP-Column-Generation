@@ -179,45 +179,8 @@ map<string, string> read_flat_json_file(const fs::path& path) {
     return values;
 }
 
-map<string, string> read_key_value_file(const fs::path& path) {
-    map<string, string> values;
-    ifstream input(path);
-    if (!input) {
-        return values;
-    }
-
-    string line;
-    while (getline(input, line)) {
-        size_t comment = line.find('#');
-        if (comment != string::npos) {
-            line = line.substr(0, comment);
-        }
-
-        line = trim(line);
-        if (line.empty()) {
-            continue;
-        }
-
-        size_t separator = line.find('=');
-        if (separator == string::npos) {
-            continue;
-        }
-
-        string key = trim(line.substr(0, separator));
-        string value = trim(line.substr(separator + 1));
-        if (!key.empty()) {
-            values[key] = value;
-        }
-    }
-
-    return values;
-}
-
 map<string, string> read_config_object_file(const fs::path& path) {
-    if (path.extension() == ".json") {
-        return read_flat_json_file(path);
-    }
-    return read_key_value_file(path);
+    return read_flat_json_file(path);
 }
 
 vector<string> split_csv_list(const string& value) {
@@ -332,8 +295,6 @@ void apply_run_config_file(
 
     if (values.count("instance")) {
         config.instance_path = resolve_instance_path(root, values["instance"]);
-    } else if (values.count("instance_path")) {
-        config.instance_path = resolve_instance_path(root, values["instance_path"]);
     }
     if (values.count("num_trials")) {
         config.num_trials = stoi(values["num_trials"]);
@@ -356,16 +317,9 @@ void apply_run_config_file(
     if (values.count("decision_pricing_limit")) {
         config.decision_pricing_limit_seconds =
             stod(values["decision_pricing_limit"]);
-    } else if (values.count("decision_pricing_limit_seconds")) {
-        config.decision_pricing_limit_seconds =
-            stod(values["decision_pricing_limit_seconds"]);
     }
     if (values.count("exact_pricing_limit")) {
         config.mwss_time_limit_seconds = stod(values["exact_pricing_limit"]);
-    }
-    if (values.count("mwss_time_limit_seconds")) {
-        config.mwss_time_limit_seconds =
-            stod(values["mwss_time_limit_seconds"]);
     }
     if (values.count("augmented_time_limit_seconds")) {
         config.augmented_time_limit_seconds =
@@ -1140,12 +1094,6 @@ MasterRunConfig parse_master_args(int argc, char** argv) {
         argv0,
         fs::path("master_cp") / "solver_config.json"
     );
-    if (default_config.empty()) {
-        default_config = find_default_file(
-            argv0,
-            fs::path("master_cp") / "config.txt"
-        );
-    }
     if (!default_config.empty()) {
         apply_run_config_file(config, default_config);
     }
@@ -1154,12 +1102,6 @@ MasterRunConfig parse_master_args(int argc, char** argv) {
         argv0,
         fs::path("master_cp") / "output.json"
     );
-    if (default_output.empty()) {
-        default_output = find_default_file(
-            argv0,
-            fs::path("master_cp") / "output.txt"
-        );
-    }
     if (!default_output.empty()) {
         apply_output_config_file(config, default_output);
     }

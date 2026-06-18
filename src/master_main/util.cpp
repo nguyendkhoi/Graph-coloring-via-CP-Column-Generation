@@ -137,45 +137,8 @@ static map<string, string> read_flat_json_file(const fs::path& path) {
     return values;
 }
 
-static map<string, string> read_key_value_file(const fs::path& path) {
-    map<string, string> values;
-    ifstream input(path);
-    if (!input) {
-        return values;
-    }
-
-    string line;
-    while (getline(input, line)) {
-        size_t comment = line.find('#');
-        if (comment != string::npos) {
-            line = line.substr(0, comment);
-        }
-
-        line = trim(line);
-        if (line.empty()) {
-            continue;
-        }
-
-        size_t separator = line.find('=');
-        if (separator == string::npos) {
-            continue;
-        }
-
-        string key = trim(line.substr(0, separator));
-        string value = trim(line.substr(separator + 1));
-        if (!key.empty()) {
-            values[key] = value;
-        }
-    }
-
-    return values;
-}
-
 map<string, string> read_config_object_file(const fs::path& path) {
-    if (path.extension() == ".json") {
-        return read_flat_json_file(path);
-    }
-    return read_key_value_file(path);
+    return read_flat_json_file(path);
 }
 
 vector<string> split_csv_list(const string& value) {

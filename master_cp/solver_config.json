@@ -2,6 +2,7 @@
   "instance": "DSJC125.9.col",
   "seed": 42,
   "threads": 1,
+  "max_iter": 150,
   "time_limit_seconds": 3600,
   "decision_pricing_limit": 5,
   "exact_pricing_limit": 30,

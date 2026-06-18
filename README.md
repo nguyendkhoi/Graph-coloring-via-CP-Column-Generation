@@ -114,7 +114,7 @@ $$y_v \in \{0,1\} \quad \forall v \in V$$
 │   │   ├── stable_set.h            # Stable-set column representation
 │   │
 │   ├── master_main/                # main_master configuration, run loop, and output writers
-│   │   ├── config.cpp              # Reads solver_config.json / config.txt
+│   │   ├── config.cpp              # Reads master_cp/solver_config.json
 │   │   ├── driver.cpp              # Column-generation control flow
 │   │   ├── output_writer.cpp       # Per-run output folder and JSONL/summary files
 │   │   ├── pricing_helpers.cpp     # Pricing order, CP decision wrapper, augmented pricing
@@ -238,15 +238,13 @@ Runs the full column-generation loop: initializes the column pool with random gr
 .\build\Release\main_master.exe [instance_path] [num_trials] [seed] [mwss_time_limit_sec] [augmented_time_limit_sec]
 ```
 
-If no arguments are passed, `main_master` reads solver defaults from the config
-files below, then automatically runs every `.col` instance in `tests/`.
+If no arguments are passed, `main_master` reads solver defaults from
+`master_cp/solver_config.json`, then automatically runs every `.col` instance in `tests/`.
 If the first argument is a directory, it runs every `.col` instance in that
 directory. If the first argument is a file, it runs only that instance.
 
 - `master_cp/solver_config.json` for solver/run parameters
 - `log_dir` inside `master_cp/solver_config.json` for the output root directory
-
-Legacy `master_cp/config.txt` is still supported as a fallback file.
 
 | Argument                   | Default              | Description                                    |
 | -------------------------- | -------------------- | ---------------------------------------------- |
