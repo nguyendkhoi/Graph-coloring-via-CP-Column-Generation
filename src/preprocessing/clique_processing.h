@@ -30,3 +30,8 @@ std::vector<int> find_stable_set(const std::vector<int>& coloring);
 std::vector<int> find_maximal_clique_from_complement(
     const Graph& G_complement
 );
+
+std::vector<std::vector<int>> generate_clique(
+    const Graph& G,
+    int number_cliques
+);

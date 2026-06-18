@@ -1,6 +1,7 @@
 #include "clique_processing.h"
 #include <vector>
 #include <algorithm>
+#include <random>
 #include <coloring/heuristic.h>
 #include "../graph/graph.h"
 
@@ -72,6 +73,31 @@ vector<int> find_maximal_clique_from_complement(const Graph& G_complement) {
     vector<int> s = find_stable_set(coloring);
     maximalize_stable_set(s, G_complement);
     return s;
+}
+
+vector<vector<int>> generate_clique(const Graph& G, int number_cliques) {
+    vector<int> vertices = G.nodes();
+    vector<vector<int>> clique_list;
+
+    Graph G_complement = G.complement();
+    clique_list.push_back(find_maximal_clique_from_complement(G_complement));
+
+    random_device rd;
+    mt19937 rng(rd());
+
+    for (int i = 0; i < number_cliques - 1; ++i) {
+        shuffle(vertices.begin(), vertices.end(), rng);
+        vector<int> coloring = random_sequential_greedy(G_complement, vertices);
+        clique_list.push_back(find_stable_set(coloring));
+    }
+
+    sort(clique_list.begin(), clique_list.end(),
+        [](const vector<int>& a, const vector<int>& b) {
+            return a.size() > b.size();
+        }
+    );
+
+    return clique_list;
 }
 
 // Remove vertices with degree < clique size

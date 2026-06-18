@@ -1,5 +1,4 @@
-#include "column_generation/driver.h"
-#include "master_main/util.h"
+#include "master_main/driver.h"
 
 #include "gurobi_c++.h"
 
@@ -7,6 +6,7 @@
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <string>
 #include <vector>
 
 using namespace std;
@@ -30,15 +30,7 @@ vector<fs::path> collect_col_instances(const fs::path& instance_dir) {
     return instances;
 }
  
-fs::path default_tests_dir(const string& argv0) {
-    fs::path tests_dir = find_default_file(argv0, "tests");
-    if (!tests_dir.empty()) {
-        return tests_dir;
-    }
-    return fs::path("tests");
-}
-
-int run_all_instances(MasterRunConfig base_config, const fs::path& instance_dir) {
+int run_all_instances(const fs::path& instance_dir) {
     vector<fs::path> instances = collect_col_instances(instance_dir);
     if (instances.empty()) {
         cerr << "No .col instances found in: " << instance_dir << endl;
@@ -56,10 +48,7 @@ int run_all_instances(MasterRunConfig base_config, const fs::path& instance_dir)
              << ": " << instances[i].filename().string() << endl;
         cout << "============================================" << endl;
 
-        MasterRunConfig instance_config = base_config;
-        instance_config.instance_path = instances[i].string();
-
-        int code = run_column_generation(instance_config);
+        int code = run_column_generation(instances[i].string());
         if (code != 0) {
             ++failed_runs;
             last_error_code = code;
@@ -79,15 +68,13 @@ int run_all_instances(MasterRunConfig base_config, const fs::path& instance_dir)
 
 int main(int argc, char** argv) {
     try {
-        MasterRunConfig config = parse_master_args(argc, argv);
-        if (argc < 2) {
-            return run_all_instances(config, default_tests_dir(argv[0]));
+        load_master_config();
+        string instance_path = argc > 1 ? argv[1] : configured_instance_path();
+        if (fs::exists(instance_path)
+            && fs::is_directory(instance_path)) {
+            return run_all_instances(instance_path);
         }
-        if (fs::exists(config.instance_path)
-            && fs::is_directory(config.instance_path)) {
-            return run_all_instances(config, config.instance_path);
-        }
-        return run_column_generation(config);
+        return run_column_generation(instance_path);
     } catch (const GRBException& e) {
         cerr << "Gurobi Error "
              << e.getErrorCode() << ": "
