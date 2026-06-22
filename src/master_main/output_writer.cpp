@@ -3,6 +3,7 @@
 #include "../config/config.h"
 #include "util.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <map>
 #include <numeric>
@@ -78,7 +79,7 @@ bool JsonlLogger::open(MasterRunSummary& summary) {
     if (vertex_stream) {
         vertex_stream << "iteration,vertex_id,degree,normalized_degree,"
                       << "dual,weighted_neighbor_dual,complement_degree,"
-                      << "stable_set_occurrences,is_selected\n";
+                      << "stable_set_occurrences,score_contribution\n";
     }
 
     return static_cast<bool>(stream) && static_cast<bool>(vertex_stream);
@@ -331,25 +332,30 @@ void log_vertex_features(
     int n = G.num_vertices();
     vector<int> frequencies = column_frequencies(pool, n);
 
+    // Find min/max of dual value
+    auto [min_it, max_it] = std::minmax_element(dual_value.begin(), dual_value.end());
+    double dual_min = *min_it;
+    double dual_range = *max_it - dual_min;
+    constexpr double alpha = 0.55;
+
     for (int v = 0; v < n; ++v) {
         int degree = G.degree(v);
-        double normalized_degree = n > 1
-            ? static_cast<double>(degree) / static_cast<double>(n - 1)
-            : 0.0;
-        double dual = v < static_cast<int>(dual_value.size())
-            ? dual_value[v]
-            : 0.0;
+        double normalized_degree = (n > 1) ? (double)degree / (n - 1) : 0.0;
+        double norm_dual = (dual_range > 1e-12) ? (dual_value[v] - dual_min) / dual_range : 0.0;
+        
+        // gộp trực tiếp contains_vertex(v) (bool tự động ép sang 0/1)
+        double score_contribution = alpha * selected_column.contains_vertex(v) + (1.0 - alpha) * norm_dual;
 
         ostringstream out;
         out << cg_iter << ","
             << v << ","
             << degree << ","
             << json_number(normalized_degree) << ","
-            << json_number(dual) << ","
+            << json_number(dual_value[v]) << ","
             << json_number(weighted_neighbor_dual(G, dual_value, v)) << ","
             << (n - 1 - degree) << ","
             << frequencies[v] << ","
-            << (selected_column.contains_vertex(v) ? 1 : 0);
+            << json_number(score_contribution);
         logger.write_vertex(out.str());
     }
 }

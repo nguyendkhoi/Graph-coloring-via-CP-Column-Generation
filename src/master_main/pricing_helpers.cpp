@@ -47,6 +47,7 @@ vector<int> weighted_shuffled_static_order(
 
 } // namespace
 
+// Reorder vertices' index
 vector<int> build_pricing_order(
     const Graph& G,
     const vector<double>& dual_value,
@@ -58,6 +59,7 @@ vector<int> build_pricing_order(
 
     string vertex_ordering = config.get<string>("vertex_ordering", "dual_desc");
 
+    // Reorder by vertex's dual value for high -> low
     if (vertex_ordering == "dual_desc") {
         stable_sort(order.begin(), order.end(),
             [&](int a, int b) {
@@ -76,6 +78,7 @@ vector<int> build_pricing_order(
         return order;
     }
 
+    // Reorder by vertex's degree for high -> low
     if (vertex_ordering == "degree_desc") {
         stable_sort(order.begin(), order.end(),
             [&](int a, int b) {
@@ -88,6 +91,7 @@ vector<int> build_pricing_order(
         return order;
     }
 
+    // Reorder randomly
     return weighted_shuffled_static_order(
         G,
         dual_value,
@@ -174,6 +178,8 @@ bool solve_decision_pricing_column(
             time_limit_seconds
         );
 
+    // CP decision pricing only returns a witness column. Failure here is not
+    // a proof that pricing has converged; the driver asks exact MWSS for that.
     if (!res.feasible) {
         return false;
     }

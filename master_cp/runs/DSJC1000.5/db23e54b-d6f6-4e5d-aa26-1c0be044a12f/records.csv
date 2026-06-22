@@ -1,0 +1,3 @@
+cg_iteration,rmp_value,number_of_columns,last_reduced_cost,dual_mean,dual_variance,rmp_time,pricing_time
+0,97.671597,2645,-0.039870,0.097672,0.002028,7.724953,38.152571
+1,97.670589,2646,-0.000000,0.097671,0.002042,0.435320,37.896985

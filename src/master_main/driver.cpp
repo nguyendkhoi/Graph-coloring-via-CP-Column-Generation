@@ -92,9 +92,7 @@ int run_column_generation(const string& instance_path) {
     initialize_column_pool(pool, G);
 
     
-    vector<vector<int>> clique_info = generate_clique(G, 20);
-    int proven_lb = clique_info.empty() ? (G.num_vertices() > 0 ? 1 : 0)
-                                        : static_cast<int>(clique_info[0].size());
+    int proven_lb = find_maximal_clique_from_complement(G.complement()).size();
     double adaptive_lower_bound = static_cast<double>(proven_lb);
     int incumbent_ub = static_cast<int>(dsatur_coloring_columns(G).size());
 
@@ -113,13 +111,18 @@ int run_column_generation(const string& instance_path) {
 
     int cg_iter = 0;
     bool converged_by_pricing = false;
-    bool closed_gap = false;
     bool reached_max_iter = false;
-    bool use_augmented_pricing = true;
+    // bool use_augmented_pricing = true;
 
     RMPSolution sol;
     StableSetPricingResult pricing_result;
     double last_rmp_time_seconds = 0.0;
+
+    // The branch-and-price node is closed once the proven lower bound reaches
+    // the incumbent upper bound.
+    auto gap_closed = [&]() -> bool {
+        return proven_lb >= incumbent_ub;
+    };
 
     auto solve_current_rmp = [&]() -> bool {
         cout << "Run RMP" << endl;
@@ -137,6 +140,7 @@ int run_column_generation(const string& instance_path) {
         return false;
     };
 
+    // If if iteration reached
     auto stop_if_iteration_limit_reached = [&]() -> bool {
         if (cg_iter < config.get<int>("max_iter", 100000)) {
             return false;
@@ -148,26 +152,13 @@ int run_column_generation(const string& instance_path) {
     };
 
     auto add_pricing_column = [&](const string& step) -> bool {
-        if (proven_lb >= incumbent_ub) {
-            closed_gap = true;
-            print_iteration(
-                cg_iter,
-                sol,
-                pricing_result.reduced_cost,
-                proven_lb,
-                incumbent_ub,
-                step + " skipped",
-                rmp.column_count()
-            );
-            return false;
-        }
-
+        //If column is duplicated
         if (!pool.insert(pricing_result.column)) {
             cout << "[iter " << cg_iter << "] duplicate " << step
                  << " column -> stop" << endl;
             return false;
         }
-
+        // else column is not duplicated
         rmp.add_column(pricing_result.column);
         print_iteration(
             cg_iter,
@@ -192,7 +183,7 @@ int run_column_generation(const string& instance_path) {
         summary.column_count = rmp.column_count();
         summary.active_lambdas = count_active_lambdas(sol);
         summary.total_lambdas = static_cast<int>(sol.lambda_value.size());
-        summary.closed_gap = closed_gap;
+        summary.closed_gap = gap_closed();
         summary.converged_by_pricing = converged_by_pricing;
         summary.reached_max_iter = reached_max_iter;
         summary.run_time_seconds = elapsed_run_seconds();
@@ -205,7 +196,7 @@ int run_column_generation(const string& instance_path) {
         return finish_with_code(2);
     }
 
-    while (!closed_gap && !reached_max_iter) {
+    while (!gap_closed() && !reached_max_iter) {
         if (summary.time_limit_seconds > 0.0
             && elapsed_run_seconds() >= summary.time_limit_seconds) {
             cerr << "Reached global time limit." << endl;
@@ -213,34 +204,47 @@ int run_column_generation(const string& instance_path) {
             break;
         }
 
+        // Decision pricing is a feasibility CP: it only asks for a stable set
+        // whose dual weight is above this threshold, hence negative reduced
+        // cost. It does not prove convergence by itself.
         double decision_threshold =
             compute_adaptive_decision_threshold(
                 sol.objective,
                 adaptive_lower_bound
             );
+        
+        // Reorder vertex
         vector<int> static_order =
             build_pricing_order(G, sol.dual_value, cg_iter);
 
+        // Take new id
         string pricing_id = summary.run_id
             + "-node0-cg" + to_string(cg_iter);
+
+        // Start time
         auto pricing_t0 = chrono::high_resolution_clock::now();
 
-        bool found_pricing_column = solve_decision_pricing_column(
-            G,
-            sol.dual_value,
-            decision_threshold,
-            static_order,
-            pricing_result,
-            config.get<double>("decision_pricing_limit", 5.0)
-        );
+        // Try the fast CP decision-pricing oracle first.
+        string step = "";
+        bool found_pricing_column = true;
+        // bool found_pricing_column = solve_decision_pricing_column(
+        //     G,
+        //     sol.dual_value,
+        //     decision_threshold,
+        //     static_order,
+        //     pricing_result,
+        //     config.get<double>("decision_pricing_limit", 5.0)
+        // );
 
-        string step = "Decision pricing";
-
-        if (found_pricing_column) {
+        if (false) {
             cout << "Decision pricing found a column"
                  << " | rc = " << fixed << setprecision(6)
                  << pricing_result.reduced_cost << endl;
         } else {
+            // If CP cannot exhibit a column quickly, switch to exact MWSS.
+            // Only this pricing call can certify that no negative-reduced-cost
+            // column remains, or provide a valid pricing bound for LB updates.
+            step = "MWSS";
             cout << "Decision pricing failed; switch to MWSS pricing" << endl;
             cout << "Run MWSS pricing" << endl;
 
@@ -252,121 +256,50 @@ int run_column_generation(const string& instance_path) {
                 config.get<double>("exact_pricing_limit", 40.0)
             );
 
-            step = "MWSS";
-
-            if (!found_pricing_column) {
+            if (found_pricing_column) {
+                cout << "MWSS pricing found a column | rc = " << fixed << setprecision(6) << pricing_result.reduced_cost << endl;
+            } else {
                 cout << "MWSS pricing failed";
-                if (pricing_result.stopped) {
-                    cout << " (time limit)";
-                }
+                if (pricing_result.stopped) cout << " (time limit)";
                 cout << endl;
+            }
 
-                double pricing_time_seconds = chrono::duration<double>(
-                    chrono::high_resolution_clock::now() - pricing_t0
-                ).count();
-                log_pricing_iteration(
-                    logger,
-                    summary.run_id,
-                    cg_iter,
-                    pricing_id,
-                    sol,
-                    rmp.column_count(),
-                    pricing_result.reduced_cost,
-                    last_rmp_time_seconds,
-                    pricing_time_seconds
-                );
-                log_vertex_features(
-                    logger,
-                    cg_iter,
-                    G,
-                    sol.dual_value,
-                    pool,
-                    pricing_result.column
-                );
-
-                if (pricing_result.proven_optimal) {
+            // Close or tighten the node only when MWSS proves optimal:
+            // - no column found: current RMP objective is the final LP bound;
+            // - column found: use the exact pricing bound z_RMP / (1 - rc).
+            if (pricing_result.proven_optimal) {
+                if (!found_pricing_column) {
                     proven_lb = max(proven_lb, ceil_bound(sol.objective));
                     adaptive_lower_bound = max(adaptive_lower_bound, sol.objective);
                     converged_by_pricing = true;
-                    closed_gap = proven_lb >= incumbent_ub;
-                }
-                break;
-            }
-
-            cout << "MWSS pricing found a column"
-                 << " | rc = " << fixed << setprecision(6)
-                 << pricing_result.reduced_cost << endl;
-
-            if (pricing_result.proven_optimal) {
-                double exact_pricing_bound =
-                    sol.objective / (1.0 - pricing_result.reduced_cost);
-                adaptive_lower_bound =
-                    max(adaptive_lower_bound, exact_pricing_bound);
-
-                int exact_pricing_lb = ceil_bound(exact_pricing_bound);
-                proven_lb = max(proven_lb, exact_pricing_lb);
-
-                if (proven_lb >= incumbent_ub) {
-                    closed_gap = true;
-                    print_iteration(
-                        cg_iter,
-                        sol,
-                        pricing_result.reduced_cost,
-                        proven_lb,
-                        incumbent_ub,
-                        step + " bound",
-                        rmp.column_count()
-                    );
-                    double pricing_time_seconds = chrono::duration<double>(
-                        chrono::high_resolution_clock::now() - pricing_t0
-                    ).count();
-                    log_pricing_iteration(
-                        logger,
-                        summary.run_id,
-                        cg_iter,
-                        pricing_id,
-                        sol,
-                        rmp.column_count(),
-                        pricing_result.reduced_cost,
-                        last_rmp_time_seconds,
-                        pricing_time_seconds
-                    );
-                    log_vertex_features(
-                        logger,
-                        cg_iter,
-                        G,
-                        sol.dual_value,
-                        pool,
-                        pricing_result.column
-                    );
-                    break;
+                } else {
+                    double exact_pricing_bound = sol.objective / (1.0 - pricing_result.reduced_cost);
+                    adaptive_lower_bound = max(adaptive_lower_bound, exact_pricing_bound);
+                    proven_lb = max(proven_lb, ceil_bound(exact_pricing_bound));
                 }
             }
         }
 
-        double pricing_time_seconds = chrono::duration<double>(
-            chrono::high_resolution_clock::now() - pricing_t0
-        ).count();
-        log_pricing_iteration(
-            logger,
-            summary.run_id,
-            cg_iter,
-            pricing_id,
-            sol,
-            rmp.column_count(),
-            pricing_result.reduced_cost,
-            last_rmp_time_seconds,
-            pricing_time_seconds
-        );
-        log_vertex_features(
-            logger,
-            cg_iter,
-            G,
-            sol.dual_value,
-            pool,
-            pricing_result.column
-        );
+        // 2. Write log data after each iteration
+        double pricing_time_seconds = chrono::duration<double>(chrono::high_resolution_clock::now() - pricing_t0).count();
+        log_pricing_iteration(logger, summary.run_id, cg_iter, pricing_id, sol, rmp.column_count(),
+                            pricing_result.reduced_cost, last_rmp_time_seconds, pricing_time_seconds);
+                            
+        log_vertex_features(logger, cg_iter, G, sol.dual_value, pool, pricing_result.column);
+    
+        // Stop before adding another column if the pricing bound has closed
+        // the gap between the proven LB and incumbent UB.
+        if (gap_closed()) {
+            cout << "Gap closed after pricing bounds update." << endl;
+            break; // stop if LB >= UB
+        }
 
+        if (!found_pricing_column) {
+            break; // Stop if it has not generate new good column
+        }
+
+        // 4. Run augemented pricing
+        /*
         vector<StableColumn> augmented_columns;
         if (use_augmented_pricing && try_improve_upper_bound_with_augmented_pricing(
             G,
@@ -393,8 +326,7 @@ int run_column_generation(const string& instance_path) {
             );
 
             ++cg_iter;
-            if (proven_lb >= incumbent_ub) {
-                closed_gap = true;
+            if (gap_closed()) {
                 break;
             }
             if (stop_if_iteration_limit_reached()) {
@@ -410,6 +342,11 @@ int run_column_generation(const string& instance_path) {
                 break;
             }
         }
+        */
+
+        if (!add_pricing_column(step)) {
+            break;
+        }
 
         if (!solve_current_rmp()) {
             return finish_with_code(2);
@@ -422,7 +359,7 @@ int run_column_generation(const string& instance_path) {
         rmp,
         proven_lb,
         incumbent_ub,
-        closed_gap,
+        gap_closed(),
         converged_by_pricing
     );
 

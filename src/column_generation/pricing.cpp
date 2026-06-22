@@ -98,7 +98,8 @@ DecisionPricingModel::DecisionPricingModel(
     std::vector<int> max_clique
 ) : G(graph), x(*this, graph.num_vertices(), 0, 1) {
 
-    // (18)
+    // Stable-set constraints: adjacent vertices cannot both enter the
+    // pricing column.
     for (auto& [u, v] : graph.edges()) {
         if (u < v) {
             rel(*this, x[u] + x[v] <= 1);
@@ -116,6 +117,8 @@ CPSolveResult solve_decision_pricing_model(
 ) {
     CPSolveResult res;
 
+    // Vertex-level bound filtering fixes x[v] = 0 when even the best
+    // stable set containing v cannot exceed the decision threshold.
     model.add_weighted_maximum_clique_filtering(dual_value, weight_threshold);
 
     IntArgs c(dual_value.size());
@@ -125,21 +128,22 @@ CPSolveResult solve_decision_pricing_model(
 
     int int_threshold = static_cast<int>(std::round(weight_threshold * SCALE));
     
+    // Decision cut: accept only columns with dual weight strictly greater
+    // than the threshold, which implies negative reduced cost.
     linear(model, c, model.x, IRT_GR, int_threshold);
 
     // 4.2.1 Shuffled Static Order
-    BoolVarArgs ordered_vars;
-    vector<char> seen(model.x.size(), 0);
-    for (int v : static_order) {
-        if (v >= 0 && v < model.x.size() && !seen[v]) {
-            ordered_vars << model.x[v];
-            seen[v] = 1;
-        }
+    if (static_cast<int>(static_order.size()) != model.x.size()) {
+        throw invalid_argument("static_order size must match number of vertices");
     }
-    for (int v = 0; v < model.x.size(); ++v) {
-        if (!seen[v]) {
-            ordered_vars << model.x[v];
+
+    BoolVarArgs ordered_vars(model.x.size());
+    for (int i = 0; i < model.x.size(); ++i) {
+        int v = static_order[i];
+        if (v < 0 || v >= model.x.size()) {
+            throw invalid_argument("static_order contains an invalid vertex");
         }
+        ordered_vars[i] = model.x[v];
     }
     branch(model, ordered_vars, BOOL_VAR_NONE(), BOOL_VAL_MAX());
 
@@ -198,6 +202,8 @@ void DecisionPricingModel::add_weighted_maximum_clique_filtering(
             }
         }
 
+        // If this upper bound is not enough to pass the threshold, no
+        // improving decision-pricing column can contain v.
         if (bound <= weight_threshold + 1e-9) {
             rel(*this, x[v], IRT_EQ, 0);
         }

@@ -380,7 +380,7 @@ master_cp/runs/<instance>/<run_id>/
 The folder contains:
 
 - `records.csv`: pricing-iteration rows with a header
-- `vertex_features.csv`: vertex-feature rows with a header, including `is_selected` (`1` if the vertex is in the pricing column selected at that iteration, else `0`)
+- `vertex_features.csv`: vertex-feature rows with a header, including `score_contribution = 0.5 * y_label + 0.5 * normalized_dual`, where `y_label` is `1` if the vertex is in the selected pricing column and `normalized_dual = (dual - dual_min) / (dual_max - dual_min)` within the iteration.
 - `summary.csv`: one-row CSV summary for this run
 - `summary.json`: JSON summary for this run
 

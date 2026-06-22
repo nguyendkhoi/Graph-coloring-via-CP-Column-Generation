@@ -28,9 +28,9 @@
         "weighted_neighbor_dual",
         "complement_degree",
         "stable_set_occurrences",
-        "is_selected"
+        "score_contribution"
       ],
-      "example_row": "12,17,108,0.870968,0.197100,37.229730,16,12,1"
+      "example_row": "12,17,108,0.870968,0.197100,37.229730,16,12,0.750000"
     },
     "summary_csv": {
       "path": "summary.csv",
