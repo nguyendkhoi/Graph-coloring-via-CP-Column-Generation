@@ -4,6 +4,10 @@ project(GraphColoring CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+#ONNX Runtime
+set(ONNXRUNTIME_DIR "C:/Program Files/onnxruntime-win-x64-1.27.0")
+
+# Gecode
 set(GECODE_DIR "C:/Program Files/Gecode")
 set(GECODE_INCLUDE "${GECODE_DIR}/include")
 set(GECODE_LIB_DIR "${GECODE_DIR}/lib")
@@ -31,10 +35,14 @@ set(MASTER_SOURCES
     src/column_generation/pricing.cpp
     src/config/config.cpp
     src/master_main/driver.cpp
+    src/master_main/cg_loop.cpp
     src/master_main/output_writer.cpp
+    src/master_main/summary_writer.cpp
+    src/master_main/vertex_features.cpp
     src/master_main/pricing_helpers.cpp
     src/master_main/reporting.cpp
     src/master_main/util.cpp
+    src/master_main/onnx.cpp
     src/augmented_pricing/augmented_pricing.cpp
 )
 
@@ -47,6 +55,7 @@ add_executable(main
 add_executable(main_master
     src/main_master.cpp
     ${MASTER_SOURCES}
+    src/master_main/onnx.h
 )
 
 # Include dirs
@@ -59,6 +68,7 @@ target_include_directories(main_master PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     "${GUROBI_DIR}/include"
     ${GECODE_INCLUDE}
+    "${ONNXRUNTIME_DIR}/include"
 )
 
 # Link libraries
@@ -84,6 +94,7 @@ target_link_libraries(main PRIVATE
 target_link_libraries(main_master PRIVATE
     ${GUROBI_LIBS}
     ${GECODE_LIBS}
+    "${ONNXRUNTIME_DIR}/lib/onnxruntime.lib"
 )
 
 # Copy Gecode DLLs for main and main_master
@@ -106,3 +117,9 @@ foreach(DLL IN LISTS GECODE_DLLS)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" $<TARGET_FILE_DIR:main_master>
     )
 endforeach()
+
+add_custom_command(TARGET main_master POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${ONNXRUNTIME_DIR}/lib/onnxruntime.dll"
+    $<TARGET_FILE_DIR:main_master>
+)

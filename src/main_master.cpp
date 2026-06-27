@@ -68,8 +68,9 @@ int run_all_instances(const fs::path& instance_dir) {
 
 int main(int argc, char** argv) {
     try {
-        load_master_config();
-        string instance_path = argc > 1 ? argv[1] : configured_instance_path();
+        string instance_path = load_master_configured_instance_path(
+            argc > 1 ? argv[1] : ""
+        );
         if (fs::exists(instance_path)
             && fs::is_directory(instance_path)) {
             return run_all_instances(instance_path);

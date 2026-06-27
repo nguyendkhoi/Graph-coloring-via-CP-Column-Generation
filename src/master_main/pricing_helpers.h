@@ -12,6 +12,10 @@ std::vector<int> build_pricing_order(
     const std::vector<double>& dual_value,
     int iteration
 );
+std::vector<int> build_dual_desc_pricing_order(
+    const Graph& G,
+    const std::vector<double>& dual_value
+);
 
 void initialize_column_pool(
     ColumnPool& pool,
@@ -32,5 +36,6 @@ bool solve_decision_pricing_column(
     double weight_threshold,
     const std::vector<int>& static_order,
     StableSetPricingResult& pricing_result,
-    double time_limit_seconds
+    double time_limit_seconds,
+    CPSolveResult* solve_result = nullptr
 );

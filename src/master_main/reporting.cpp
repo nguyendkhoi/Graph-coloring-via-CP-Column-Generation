@@ -16,7 +16,7 @@ void print_run_header(
     int incumbent_ub
 ) {
     cout << "============================================" << endl;
-    cout << " Column Generation with Augmented Pricing" << endl;
+    cout << " Column Generation with MWSS Pricing" << endl;
     cout << " Instance : " << instance_path << endl;
     cout << " |V|      : " << G.num_vertices() << endl;
     cout << " |E|      : " << count_edges(G) << endl;
@@ -24,13 +24,9 @@ void print_run_header(
     cout << " Threads  : " << config.get<int>("threads", 1) << endl;
     cout << " Run TL   : "
          << config.get<double>("time_limit_seconds", 3600.0) << " s" << endl;
-    cout << " DP TL    : "
-         << config.get<double>("decision_pricing_limit", 5.0) << " s" << endl;
     cout << " MWSS TL  : "
          << config.get<double>("exact_pricing_limit", 40.0) << " s" << endl;
-    cout << " AP TL    : "
-         << config.get<double>("augmented_time_limit_seconds", 40.0)
-         << " s" << endl;
+
     cout << " Init cols: " << pool.size() << endl;
     cout << " Init LB  : " << proven_lb << endl;
     cout << " Init UB  : " << incumbent_ub << endl;

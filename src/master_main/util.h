@@ -6,8 +6,14 @@
 #include <string>
 #include <vector>
 
+struct ConfigLocation {
+    std::filesystem::path path;
+    std::filesystem::path root;
+};
+
 std::string trim(const std::string& value);
 
+ConfigLocation master_config_location();
 std::filesystem::path config_root_from_file(const std::filesystem::path& path);
 std::string resolve_config_path(
     const std::filesystem::path& root,

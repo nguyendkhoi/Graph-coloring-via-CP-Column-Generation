@@ -9,6 +9,11 @@ struct RMPSolution {
     double objective = 0.0;
     std::vector<double> lambda_value;
     std::vector<double> dual_value;
+    double dual_objective = 0.0;
+    double duality_gap = 0.0;
+    double max_reduced_cost_error = 0.0;
+    double min_dual_value = 0.0;
+    bool dual_values_valid = false;
     int status = 0;
 };
 

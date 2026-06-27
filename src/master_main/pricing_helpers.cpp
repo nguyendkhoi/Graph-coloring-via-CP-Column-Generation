@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <iostream>
 #include <numeric>
 #include <random>
@@ -47,6 +48,29 @@ vector<int> weighted_shuffled_static_order(
 
 } // namespace
 
+vector<int> build_dual_desc_pricing_order(
+    const Graph& G,
+    const vector<double>& dual_value
+) {
+    vector<int> order(G.num_vertices());
+    iota(order.begin(), order.end(), 0);
+    stable_sort(order.begin(), order.end(),
+        [&](int a, int b) {
+            double da = a < static_cast<int>(dual_value.size())
+                ? dual_value[a]
+                : 0.0;
+            double db = b < static_cast<int>(dual_value.size())
+                ? dual_value[b]
+                : 0.0;
+            if (fabs(da - db) > 1e-12) {
+                return da > db;
+            }
+            return a < b;
+        }
+    );
+    return order;
+}
+
 // Reorder vertices' index
 vector<int> build_pricing_order(
     const Graph& G,
@@ -61,21 +85,7 @@ vector<int> build_pricing_order(
 
     // Reorder by vertex's dual value for high -> low
     if (vertex_ordering == "dual_desc") {
-        stable_sort(order.begin(), order.end(),
-            [&](int a, int b) {
-                double da = a < static_cast<int>(dual_value.size())
-                    ? dual_value[a]
-                    : 0.0;
-                double db = b < static_cast<int>(dual_value.size())
-                    ? dual_value[b]
-                    : 0.0;
-                if (fabs(da - db) > 1e-12) {
-                    return da > db;
-                }
-                return a < b;
-            }
-        );
-        return order;
+        return build_dual_desc_pricing_order(G, dual_value);
     }
 
     // Reorder by vertex's degree for high -> low
@@ -164,7 +174,8 @@ bool solve_decision_pricing_column(
     double weight_threshold,
     const vector<int>& static_order,
     StableSetPricingResult& pricing_result,
-    double time_limit_seconds
+    double time_limit_seconds,
+    CPSolveResult* solve_result
 ) {
     pricing_result = StableSetPricingResult{};
 
@@ -178,8 +189,10 @@ bool solve_decision_pricing_column(
             time_limit_seconds
         );
 
-    // CP decision pricing only returns a witness column. Failure here is not
-    // a proof that pricing has converged; the driver asks exact MWSS for that.
+    if (solve_result != nullptr) {
+        *solve_result = res;
+    }
+
     if (!res.feasible) {
         return false;
     }

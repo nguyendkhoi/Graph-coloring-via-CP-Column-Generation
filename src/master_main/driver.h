@@ -33,7 +33,6 @@ struct MasterRunSummary {
     int exit_code = 0;
 };
 
-void load_master_config();
-std::string configured_instance_path();
+std::string load_master_configured_instance_path(const std::string& override_instance_path = "");
 
 int run_column_generation(const std::string& instance_path);

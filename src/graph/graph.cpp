@@ -16,6 +16,7 @@ Graph::Graph(int vertices) : V(vertices) {
 
 void Graph::add_edge(int u, int v) {
     if (u == v) return;
+    if (u < 0 || v < 0 || u >= V || v >= V) return;
 
     adj[u].insert(v);
     adj[v].insert(u);
@@ -26,8 +27,8 @@ bool Graph::has_edge(int u, int v) const {
     return adj[u].count(v) > 0;
 }
 
-int Graph::num_vertices() const { 
-    return V; 
+int Graph::num_vertices() const {
+    return V;
 }
 
 Graph Graph::complement() const {
@@ -44,7 +45,7 @@ Graph Graph::complement() const {
 
 int Graph::degree(int v) const {
     if (v >= V || v < 0) return 0;
-    return adj[v].size();
+    return static_cast<int>(adj[v].size());
 }
 
 vector<int> Graph::nodes() const {
@@ -56,6 +57,42 @@ vector<int> Graph::nodes() const {
 const unordered_set<int>& Graph::neighbors(int v) const {
     return adj[v];
 }
+
+vector<pair<int, int>> Graph::edges() const {
+    vector<pair<int, int>> edge_list;
+
+    for (int u = 0; u < static_cast<int>(adj.size()); ++u) {
+        for (int v : adj[u]) {
+            if (u < v) {
+                edge_list.push_back({u, v});
+            }
+        }
+    }
+    return edge_list;
+}
+
+vector<int64_t> build_edge_index(const Graph& G) {
+    vector<pair<int, int>> edges = G.edges();
+
+    vector<int64_t> src;
+    vector<int64_t> dst;
+    src.reserve(edges.size() * 2);
+    dst.reserve(edges.size() * 2);
+
+    for (const auto& [u, v] : edges) {
+        src.push_back(static_cast<int64_t>(u));
+        dst.push_back(static_cast<int64_t>(v));
+        src.push_back(static_cast<int64_t>(v));
+        dst.push_back(static_cast<int64_t>(u));
+    }
+
+    vector<int64_t> edge_index;
+    edge_index.reserve(src.size() + dst.size());
+    edge_index.insert(edge_index.end(), src.begin(), src.end());
+    edge_index.insert(edge_index.end(), dst.begin(), dst.end());
+    return edge_index;
+}
+
 // Paser file dimacs
 Graph parser_dimacs_col(const string& file_path, bool zero_based) {
     ifstream in(file_path);
@@ -70,80 +107,67 @@ Graph parser_dimacs_col(const string& file_path, bool zero_based) {
 
     while (getline(in, line)) {
         ++line_num;
-        
+
         if (line.empty()) continue;
-        
+
         istringstream iss(line);
         vector<string> tokens;
         string token;
         while (iss >> token) {
             tokens.push_back(token);
         }
-        
+
         if (tokens.empty()) continue;
-        
+
         // Skip comment
         if (tokens[0] == "c") {
             continue;
         }
-        
-        // Problem line: p edge <num_vertices> <num_edges>
+
+        // Problem line: p edge|edges <num_vertices> <num_edges>
         if (tokens[0] == "p") {
             if (tokens.size() != 4) {
-                throw runtime_error("Invalid problem line at line " + to_string(line_num) 
+                throw runtime_error("Invalid problem line at line " + to_string(line_num)
                     + ": expected 4 tokens, got " + to_string(tokens.size()));
             }
-            if (tokens[1] != "edge") {
-                throw runtime_error("Invalid problem line at line " + to_string(line_num) 
-                    + ": expected 'edge', got '" + tokens[1] + "'");
+            if (tokens[1] != "edge" && tokens[1] != "edges") {
+                throw runtime_error("Invalid problem line at line " + to_string(line_num)
+                    + ": expected 'edge' or 'edges', got '" + tokens[1] + "'");
             }
-            
+
             int num_vertices = stoi(tokens[2]);
             graph = Graph(num_vertices);
             graph_initialized = true;
             continue;
         }
-        
+
         // Edge line: e <u> <v>
         if (tokens[0] == "e") {
             if (tokens.size() != 3) {
-                throw runtime_error("Invalid edge line at line " + to_string(line_num) 
+                throw runtime_error("Invalid edge line at line " + to_string(line_num)
                     + ": expected 3 tokens, got " + to_string(tokens.size()));
             }
             if (!graph_initialized) {
-                throw runtime_error("Edge line at line " + to_string(line_num) 
+                throw runtime_error("Edge line at line " + to_string(line_num)
                     + " before problem line");
             }
-            
+
             int u = stoi(tokens[1]);
             int v = stoi(tokens[2]);
-            
+
             if (zero_based) {
                 u -= 1;
                 v -= 1;
             }
-            
+
             graph.add_edge(u, v);
             continue;
         }
     }
-    
+
     if (!graph_initialized) {
         throw runtime_error("No problem line found in file");
     }
-    
+
     return graph;
 }
-
-vector<pair<int, int>>  Graph::edges() const {
-    vector<pair<int, int>> edge_list;
-    
-    for (int u = 0; u < adj.size(); ++u) {
-        for (int v : adj[u]) {
-            if (u < v) { 
-                edge_list.push_back({u, v});
-            }
-        }
-    }
-    return edge_list;
-};

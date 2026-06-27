@@ -1,2 +1,0 @@
-run_id,run_log_path,instance_path,instance,n,m,num_trials,seed,threads,time_limit_seconds,run_time_seconds,iterations,rmp_status,lp_objective,proven_lb,incumbent_ub,column_count,active_lambdas,total_lambdas,closed_gap,converged_by_pricing,reached_max_iter,reached_time_limit,exit_code
-b04d9e75-cf5a-4610-ac29-846e98757f32,C:\Users\Dinh Khoi\Documents\AI\Graph-coloring-via-CP-Column-Generation\master_cp\runs\b04d9e75-cf5a-4610-ac29-846e98757f32.jsonl,.\tests\le450_25a.col,le450_25a.col,450,8260,20,42,1,3600.000000,1.884553,0,OPTIMAL,25.000000,25,25,591,226,591,1,1,0,0,0

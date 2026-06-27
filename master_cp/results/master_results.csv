@@ -1,6 +1,0 @@
-instance_path,instance,n,m,num_trials,seed,iterations,rmp_status,lp_objective,proven_lb,incumbent_ub,column_count,active_lambdas,total_lambdas,closed_gap,converged_by_pricing,reached_max_iter,exit_code
-.\tests\myciel3.col,myciel3.col,11,20,20,40,0,OPTIMAL,2.900000,3,4,16,11,16,0,1,0,0
-.\tests\myciel4.col,myciel4.col,23,71,20,40,3,OPTIMAL,3.244828,4,5,56,23,56,0,1,0,0
-.\tests\fpsol2.i.2.col,fpsol2.i.2.col,451,8691,20,40,0,OPTIMAL,30.000000,30,30,500,30,500,1,1,0,0
-.\tests\fpsol2.i.2.col,fpsol2.i.2.col,451,8691,20,40,0,OPTIMAL,30.000000,30,30,500,30,500,1,1,0,0
-.\tests\le450_25a.col,le450_25a.col,450,8260,20,40,0,OPTIMAL,25.000000,25,25,587,25,587,1,1,0,0

@@ -5,7 +5,8 @@
       "includePath": [
         "${workspaceFolder}/src",
         "C:/Program Files/Gecode/include",
-        "C:/gurobi1302/win64/include"
+        "C:/gurobi1302/win64/include",
+        "C:/Program Files/onnxruntime-win-x64-1.27.0/include"
       ],
       "defines": [
         "_DEBUG",

@@ -1,2 +1,0 @@
-run_id,run_output_dir,run_log_path,instance_path,instance,n,m,num_trials,seed,threads,time_limit_seconds,run_time_seconds,iterations,rmp_status,lp_objective,proven_lb,incumbent_ub,column_count,active_lambdas,total_lambdas,closed_gap,converged_by_pricing,reached_max_iter,reached_time_limit,exit_code
-3639ae6e-979b-4196-87c6-a72482d8adb7,master_cp\runs\huck\3639ae6e-979b-4196-87c6-a72482d8adb7,master_cp\runs\huck\3639ae6e-979b-4196-87c6-a72482d8adb7\records.csv,tests\huck.col,huck.col,74,301,20,42,1,3600.000000,0.140344,0,OPTIMAL,11.000000,11,11,434,25,434,1,0,0,0,0

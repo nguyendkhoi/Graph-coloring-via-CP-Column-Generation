@@ -176,10 +176,13 @@ CPSolveResult solve_decision_pricing_model(
         }
 
         delete sol;
-        
     } else if (engine.stopped()) {
         res.stopped = true;
     }
+
+    Search::Statistics statistics = engine.statistics();
+    res.nodes = statistics.node;
+    res.failures = statistics.fail;
 
     return res;
 }

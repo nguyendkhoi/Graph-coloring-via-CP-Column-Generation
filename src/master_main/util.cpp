@@ -31,6 +31,11 @@ string trim(const string& value) {
     return value.substr(first, last - first);
 }
 
+ConfigLocation master_config_location() {
+    fs::path path = fs::path("master_cp") / "solver_config.json";
+    return {path, config_root_from_file(path)};
+}
+
 fs::path config_root_from_file(const fs::path& path) {
     fs::path parent = path.parent_path();
     if (parent.filename() == "master_cp") {

@@ -1,2 +1,0 @@
-run_id,run_output_dir,run_log_path,instance_path,instance,n,m,num_trials,seed,threads,time_limit_seconds,run_time_seconds,iterations,rmp_status,lp_objective,proven_lb,incumbent_ub,column_count,active_lambdas,total_lambdas,closed_gap,converged_by_pricing,reached_max_iter,reached_time_limit,exit_code
-4bd45312-32b3-4a96-831d-4e5126662f2d,master_cp\runs\jean\4bd45312-32b3-4a96-831d-4e5126662f2d,master_cp\runs\jean\4bd45312-32b3-4a96-831d-4e5126662f2d\records.csv,tests\jean.col,jean.col,80,254,20,42,1,3600.000000,0.166070,0,OPTIMAL,10.000000,10,10,433,25,433,1,1,0,0,0
